@@ -2360,7 +2360,8 @@ class LunaMainWindow(QMainWindow):
             status = self.settings_manager.get_model_status(mid)
             if not (ignore_pings and auto_fb):
                 if status in ("paused", "error"):
-                    badge = " [PAUSED]" if status == "paused" else " [UNAVAILABLE]"
+                    # For error state, avoid the word 'UNAVAILABLE' in the badge
+                    badge = " [PAUSED]" if status == "paused" else " [ERROR]"
             self.model_label.setText(f"{model_emoji} {current_model.get('name', 'Unknown Model')}{badge}")
         except Exception:
             pass
@@ -2396,9 +2397,10 @@ class LunaMainWindow(QMainWindow):
                             tooltip = (err or {}).get('error') or "Endpoint temporarily paused"
                     elif status == 'error':
                         if not (ignore_pings and auto_fb):
-                            badge = " [UNAVAILABLE]"
+                            # Show a generic error badge without using the word 'unavailable'
+                            badge = " [ERROR]"
                             err = self.settings_manager.get_model_error(mid)
-                            tooltip = (err or {}).get('error') or "Model unavailable"
+                            tooltip = (err or {}).get('error') or "Error contacting model"
                     elif status == 'requires_api_key':
                         if not (ignore_pings and auto_fb):
                             badge = " [API KEY REQUIRED]"
