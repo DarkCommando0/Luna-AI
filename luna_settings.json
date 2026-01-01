@@ -1,0 +1,131 @@
+{
+  "default_city": "Beavercreek,Ohio",
+  "ai_creativity": 0.7,
+  "chat_font_size": 14,
+  "theme": "dark",
+  "auto_scroll": true,
+  "save_chat_history": true,
+  "response_delay": 0.1,
+  "search_results_limit": 3,
+  "conversation_memory": 10,
+  "current_ai_model": "local_engine",
+  "api_timeout": 30,
+  "auto_fallback": true,
+  "retry_attempts": 2,
+  "alt_attempt_cap": 3,
+  "ignore_status_pings": true,
+  "alternate_priority": "",
+  "status_check_interval": 300,
+  "enable_web_search": true,
+  "enable_system_commands": true,
+  "available_models": {
+    "local_engine": {
+      "name": "Conversation Engine",
+      "type": "local",
+      "description": "Fast local responses with advanced pattern matching and creativity controls",
+      "features": [
+        "instant_response",
+        "offline",
+        "privacy",
+        "creativity_control",
+        "weather_integration",
+        "web_search",
+        "system_commands"
+      ],
+      "status": "active"
+    },
+    "local/mistral-7b-instruct": {
+      "name": "Mistral 7B",
+      "type": "local",
+      "description": "Local 7B parameter model with excellent performance, runs entirely on your hardware",
+      "features": [
+        "conversation",
+        "reasoning",
+        "instruction_following",
+        "code_generation",
+        "offline",
+        "privacy"
+      ],
+      "status": "available"
+    },
+    "local/llama-3.1-8b-instruct": {
+      "name": "Llama 3.1 8B",
+      "type": "local",
+      "description": "Latest local 8B model with strong reasoning capabilities, runs entirely on your hardware",
+      "features": [
+        "reasoning",
+        "conversation",
+        "instruction_following",
+        "knowledge_retrieval",
+        "offline",
+        "privacy"
+      ],
+      "status": "available"
+    },
+    "local/qwen-2.5-7b-instruct": {
+      "name": "Qwen 2.5 7B",
+      "type": "local",
+      "description": "Local 7B model with strong multilingual capabilities, runs entirely on your hardware",
+      "features": [
+        "multilingual",
+        "conversation",
+        "reasoning",
+        "instruction_following",
+        "offline",
+        "privacy"
+      ],
+      "status": "available"
+    },
+    "local/deepseek-coder-6.7b": {
+      "name": "DeepSeek Coder 6.7B",
+      "type": "local",
+      "description": "Local 6.7B model optimized for coding and programming tasks, runs entirely on your hardware",
+      "features": [
+        "code_generation",
+        "programming_assistance",
+        "debugging",
+        "offline",
+        "privacy"
+      ],
+      "status": "available"
+    },
+    "nex-agi/deepseek-v3.1-nex-n1:free": {
+      "name": "DeepSeek V3",
+      "type": "openrouter",
+      "description": "DeepSeek's latest conversational model optimized for chat interactions and instruction following",
+      "features": [
+        "conversation",
+        "instruction_following",
+        "reasoning",
+        "multilingual"
+      ],
+      "status": "available"
+    },
+    "openai/gpt-oss-20b:free": {
+      "name": "OpenAI GPT-OSS 20B",
+      "type": "openrouter",
+      "description": "Open-source 20B parameter language model based on GPT architecture with strong general-purpose capabilities",
+      "features": [
+        "conversation",
+        "reasoning",
+        "code_generation",
+        "knowledge_retrieval",
+        "multilingual"
+      ],
+      "status": "available"
+    }
+  },
+  "hf_api_token": "",
+  "openrouter_api_key": "",
+  "force_enable_hf_models": false,
+  "model_errors": {
+    "openai/gpt-oss-20b:free": {
+      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
+      "timestamp": 1767300733.5161192
+    },
+    "nex-agi/deepseek-v3.1-nex-n1:free": {
+      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
+      "timestamp": 1767300733.5161192
+    }
+  }
+}

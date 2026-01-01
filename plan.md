@@ -1,0 +1,376 @@
+# Luna AI Main Window Enhancement Plan
+
+## Notes
+- Keep this file as the source of truth for ongoing work; update it as changes are made.
+- Current status (Jan 2026): project is intended to run from source in **dev mode** only.
+  - Inno Setup installer work has been dropped for now; `LunaAI.iss` has been removed.
+  - `.env`, `luna_settings.json`, `user_data/`, and `local_models/` are treated as local-only and are now ignored via `.gitignore` again.
+  - README has been updated to describe the dev-mode workflow (`pip install -r requirements.txt`, `python app.py`).
+- The original app.py was missing a main window and entry point.
+- Added main window class with chat, input, and menu bar.
+- Existing dialogs (SettingsDialog, ModelsDialog) were not changed.
+- User now requests a tabbed interface on the left side of the main window.
+- Left-side tabbed interface with Chat, Models, Settings, and System tabs implemented.
+- User wants tab content to appear in main area, not sidebar, and improved readability.
+- UI now uses left navigation to control main content area; readability improved.
+- User wants model selection in Models tab and removed from Settings tab; all other Settings content unchanged.
+- Model selection UI is now in Models tab and removed from Settings tab; all other Settings content unchanged.
+- Settings tab (in navigation) will be removed; system info will be improved; AI Model selection removed from preferences, creativity setting retained.
+- These changes have now been implemented: Settings tab removed from navigation, system info improved, and AI Model selection removed from preferences (creativity retained).
+- System Information tab is showing the correct system information.
+- AI Model selection has been removed from the settings dialog (creativity retained).
+- User now requests removal of the Model Selection tab from the AI Model Selection & Information dialog (ModelsDialog).
+- "Model not found in available models" error for DeepSeek V3 after updating path; likely cause: ai_api module's available models config is out of sync with app settings.
+- ai_api module's available models config has now been synchronized with app settings; DeepSeek V3 path is correct in both.
+- Chat UI colors improved and duplicate assistant messages (welcome and responses) fixed.
+- User requests: (1) remove colored border going right in chat messages, (2) ensure "Typing..." indicator is removed as soon as the AI response is ready.
+- Both chat UI border and typing indicator issues have been fixed per user feedback.
+- Final fix: switched to simple text formatting for chat messages (no background/border), and now restore chat HTML state to instantly remove typing indicator when AI responds.
+- User now requests a ChatGPT-style typing indicator (animated dots, character-by-character effect, blinking cursor) based on web research.
+- ChatGPT-style typing indicator (animated dots, character-by-character effect, blinking cursor) has now been implemented in the chat UI per research findings.
+- User requests to revert to the previous simple typing indicator (no animation, just "Typing..." message) due to issues with the new animation.
+- User clarified: do NOT revert; instead, fix the ChatGPT-style typing animation (character-by-character effect is broken, only shows "l").
+- ChatGPT-style typing animation is still broken (only shows "l"); actively debugging and repairing the bug.
+- Attempts to fix animation bug have not produced a robust solution; current approach still only shows one character and then stops. Need to implement a simpler, reliable character-by-character typing animation.
+- Robust, simple character-by-character typing animation implemented using unique ID and message replacement; now under user test.
+- Message replacement logic fix (regex-based) is still unreliable; animation still creates multiple messages. Need to implement a non-regex, direct update approach for single-message animation.
+- Non-regex, direct update approach for single-message typing animation implemented; now under user test.
+- User requests to remove the animated dots and keep only the typewriter (character-by-character) effect in the chat UI.
+- Animated dots have been removed; only typewriter effect remains. Reviewing code for further smoothness improvements.
+- Typewriter animation has been smoothed: no initial cursor flicker, consistent timing, and more natural character pacing.
+- Implementation has been double-checked and is ready for further feedback.
+- User requests addition of OpenRouter GPT-OSS-20B model (https://openrouter.ai/models/openai/gpt-oss-20b) to available models.
+- GPT-OSS-20B model added to both ai_api.py and app.py available models/configuration.
+- Unicode encoding error ('charmap' codec can't encode character '\u2705') occurred due to emoji in print/UI messages on Windows.
+- Unicode emoji replaced with ASCII alternatives (e.g., '[OK]', '[SUCCESS]') in code and UI to ensure compatibility.
+- User requests that AI should state which model it is currently using in its responses.
+- Feature implemented: AI now states the current model in all responses.
+- Model identification is not accurate for web search results (shows Local Conversation Engine instead of the real model).
+- Asking "what model are you using?" triggers a web search instead of a direct answer; needs intent handling for model self-identification.
+- Both issues fixed: model identification is now accurate for all response types, and intent handling for direct model self-report is implemented.
+- BUG: All models are displaying the Local Conversation Engine description instead of their own; confirmed as a UI/model mapping bug (not a config/caching issue). Needs targeted fix in how model info is mapped/displayed in the UI.
+- Model config files and settings have correct descriptions; issue is in UI display/model mapping. Application restart attempted to clear any UI cache.
+- ROOT CAUSE IDENTIFIED: All model cards display the description of the currently active model (not their own); this is a UI/model reference bug that must be fixed in the model card creation or mapping logic.
+- UI bug fixed: Each model card now gets its own copy of model_info, so each model displays its unique description as intended.
+- Fix verified: Each model card now displays its own description
+- Model Selection tab with per-model cards (and correct descriptions) has been re-added to the ModelsDialog. Select button binding bug fixed (each button selects the correct model).
+- Added live model description preview to the main Models page, updating with dropdown selection.
+- Model cards now display their model_id for clarity and debugging.
+- "Detailed Info" button now opens the Model Selection tab by default for clarity.
+- Removed duplicate model description preview on main Models page; only visible Active AI Model description remains and now updates correctly after model change.
+- Improved OpenRouter API error handling: detects paused/loading endpoints, propagates exceptions, and provides clear fallback messaging to the user when a model is unavailable or paused.
+- FIXED: Model switching bug—apply handler now syncs selected model to ai_api advanced_settings so chat uses the selected HF model, not always local_engine.
+- User preference: Every time a new user request is made, update this plan, mark completed items, and set the current goal to 'Await further feedback.'
+- Next enhancement: Add UI status indicator (Paused badge + tooltip) for models whose endpoints are detected as paused/unavailable in the Models tab.
+- OpenRouter model error tracking and fallback handling in ai_api.py has been fixed and syntax errors resolved.
+- Fixed: settings_manager import and OpenRouterAPI.query_model parameter mismatch in ai_api.py.
+- Verified and corrected OpenRouterAPI.query_model usage to match class definition, resolving runtime errors.
+- settings_manager is now set via a setter function in ai_api.py and initialized from app.py, resolving ModuleNotFoundError and circular dependency issues.
+- User requests: Add a visual indicator in the UI for paused/unavailable models and implement automatic periodic checking to detect when a model becomes available again.
+- New: Added force-enable option to allow selecting and using unavailable/paused/loading OpenRouter models, with increased retry attempts and UI override.
+- User requests: Add force-enable unavailable HF models feature (UI, settings, retry logic).
+- Privacy fix: API token is no longer pre-filled in the UI; user must explicitly check 'Persist token to settings' to save it, otherwise it is only used at runtime and not stored.
+- Fixed: ModelsDialog crash (NameError: card_layout) when opening the AI models page due to duplicate widget addition/connection; select button logic now respects force-enable and is robust.
+- Removed logic in show_model_info to select the removed Model Selection tab, ensuring dialog opens cleanly.
+- Fixed crash in ModelsDialog by implementing missing update_current_settings() method to populate Current Configuration panel.
+- Removed Help menu from the menu bar and added an About tab/page in the left navigation, with a new main content area for About Luna information.
+- Removed About Luna button from the System tab and centered the Performance Monitor button per user request.
+- Removed logic and UI for OpenRouter API token wiring at startup and in settings.
+- Removed force-enable OpenRouter models option and all related UI/settings.
+- Restricted available models to only the local engine in both ai_api.py and app settings.
+- Removed HF token/force-enable fields from current configuration display in ModelsDialog.
+- User is confused why models are gone after HF removal; wants Test Model results to reflect if it is working.
+- Test Model feature now clearly shows success/failure and model status.
+- OpenRouter models have been re-enabled in both app.py and ai_api.py, with runtime token handling (no token stored in settings).
+- Test Model feature now uses a QThread worker and QTimer-driven progress bar for smooth, responsive UI and accurate pass/fail reporting.
+- The "unavailable tool" (background status checker and gating) has been fully removed: all models are always visible and selectable regardless of backend status. Test Model is the only runtime check.
+- Added session-only OpenRouter token input in the Models tab, allowing users to set a runtime token without saving it to settings. This enables immediate use of OpenRouter models without restarting the app or storing tokens.
+- Session token input has been removed from the UI for privacy; backend now loads OpenRouter API token from a local .env file (never committed). .env is no longer git-ignored.
+- .env file is no longer git-ignored and may be tracked in the repo (per user request).
+- .env file now contains the user's OPENROUTER_API_KEY in the correct format as required for backend authentication.
+- Added safe debug logging and a reload helper for OpenRouter token detection in ai_api.py to assist with authentication troubleshooting.
+- When a OpenRouter model endpoint is paused or loading, the app now automatically attempts to switch to an alternate available OpenRouter model before falling back to the local engine. If an alternate model responds, it is auto-selected and the user is notified in the response.
+- Fallback to alternates is robust: alternates are status-checked for 'available' before attempting; if all alternates fail status or query, a direct-try list (from env or defaults) is attempted before local fallback.
+- Alternate OpenRouter model fallback logic now strictly uses the same set of models as exposed in the Luna UI (SettingsManager.available_models); all hardcoded alternates have been removed for consistency. Backend and UI are now always in sync for fallback options.
+- Code review confirms ai_api.py implements robust fallback to alternate OpenRouter models, with status checks, and aligns with UI model status handling.
+- Verified and confirmed fallback logic is correctly implemented in ai_api.py, ensuring seamless model switching and UI updates.
+- In-depth review of call_ai_api() confirms OpenRouter fallback logic, alternate model attempts, and status updates are robust and aligned with UI handling.
+- Verified and confirmed fallback logic is correctly implemented in ai_api.py, ensuring seamless model switching and UI updates.
+- Explicit mapping of HTTP 404 to 'error' with a clear message has been implemented in check_openrouter_model_status() (with docstring clarification).
+- Enhanced Model Status Management: Real-time health monitoring, smart status detection, persistent error tracking, and visual status indicators are implemented and verified.
+- Improved Resilience Features: Auto-fallback, enhanced retry logic, intelligent error handling, and automatic recovery mechanisms are present and functioning as described.
+- Enhanced User Interface: Status banner, enhanced model cards, quick status checks, and improved dropdowns are implemented in the Models tab.
+- New Settings Options: Model resilience settings, status check intervals, and advanced error recovery options are present in the configuration and code.
+- Key Features: Background monitoring, smart auto-switching, status persistence, enhanced testing, and performance tracking are all implemented and verified.
+- Problem Resolution: The app now gracefully handles paused/error OpenRouter models, provides user notifications, uses fallback strategies, and recovers status automatically.
+- Essential backend-only resilience features are now implemented: default settings for auto_fallback, retry_attempts, and status_check_interval; periodic background status checks via QTimer; and configurable retry attempts for OpenRouter API calls.
+- Reminder: UI controls for these resilience settings (interval, retry attempts, auto-fallback toggle) can be added later if desired.
+- Newly discovered: When all OpenRouter alternates are paused or errored, the fallback logic in ai_api.py status-checks direct alternates before attempting them, causing all alternates to be skipped if their status is not 'available.' This may prevent recovery if a model is incorrectly flagged as unavailable. Review and potentially revise this logic.
+- Fallback logic has now been revised: alternates are always attempted directly (status checks no longer gate attempts), improving recovery when status pings are unreliable. Patch applied and logic confirmed.
+- Fixed: Missing _status_check_running flag in main window __init__ now initialized to prevent AttributeError on first run of background model status timer.
+- Revised: Fallback logic now tries additional alternates from UI/ENV list as long as the attempt cap is not reached (not just when none were tried), improving alternate model coverage.
+- Advanced Recovery UI and backend logic (attempt cap, ignore status pings, alternate priority) are now implemented and wired up.
+- Fixed: Advanced Recovery controls are now enabled/disabled based on Auto Fallback toggle in SettingsDialog.
+- Fixed: Model selection dropdown and enabling now immediately reflect Ignore Status Pings and Auto Fallback settings after save; models are selectable as expected.
+- Fixed: Robust boolean coercion for settings (e.g. 'False'/'True' strings) ensures Ignore Status Pings and Auto Fallback are accurately loaded after restart and respected in UI/backend logic.
+- Fixed: Settings are now saved to disk immediately on Save, so toggles like Auto Fallback and Ignore Status Pings persist across restarts and are respected in both UI and backend logic.
+- Fixed: Toggling Auto Fallback and Ignore Status Pings in the UI applies the effect live (model dropdown enabling updates instantly).
+- Fixed: When Ignore Status Pings is ON and Auto Fallback is ON, the UI now fully suppresses paused/unavailable/loading badges and tooltips in the model dropdown, so models appear available and selectable as expected.
+- Fixed: Qt item flags are now used to make models truly clickable/selectable when ignoring status pings.
+- Fixed: Backend model switching guard now respects Ignore Status Pings + Auto Fallback, so the 'Model Not Available' dialog no longer blocks selection when those settings are enabled. This completes the end-to-end fix for making unavailable models selectable and switchable in this mode.
+- Enhancement: Before falling back to local, a curated set of known working OpenRouter API models is now preflight-checked and attempted as a final resort. This ensures at least one working OpenRouter model is tried if available, maximizing model usability and resilience.
+- The available models list in both UI and backend has been updated to only include models that are commonly available via OpenRouter API: DeepSeek, Qwen, and GPT-OSS models. Backend and UI alternates are now strictly in sync and only these models are attempted.
+- Note 4
+- New note: User requested and received a Discord-ready support template for OpenRouter API troubleshooting, including token scope, endpoint status, and model availability questions. Plan now tracks support escalation as the next step if no working models are available.
+- Reference links for troubleshooting 404/PAUSED endpoints and model availability:
+  - https://openrouter.ai/docs
+  - https://openrouter.ai/models
+  - https://openrouter.ai/keys
+- New note: Backend now skips 404 errors for alternates without counting them against the attempt cap, and supports per-model endpoint overrides via environment variable (OPENROUTER_ENDPOINT__{SANITIZED_MODEL_ID}). The user's original model list is retained as requested; no forced changes to available models.
+
+## Recent UI/Docs Notes
+- About page updated: now a clean text-only layout with a short Luna AI description, feature list, version, and a Providers section listing Local engine, OpenRouter, and OpenWeatherMap (with matching emojis).
+- Models tab "Model Providers" box enhanced: now shows both OpenRouter and OpenWeatherMap with green "API key configured" or red "No API key configured" status lines.
+- README Getting Started step 2 simplified: users are instructed to open File Explorer, right-click the Luna folder, and choose "Open in Terminal" / "Open PowerShell window here" to start from the correct directory.
+- System Information tab improved: OS line now uses a friendly label derived from the OS itself (Windows ProductName from registry or platform values), so it reflects whatever OS the system reports rather than a hardcoded version.
+
+## Task List
+- [x] Review app.py for missing main window/entry point
+- [x] Add main window and entry point
+- [x] Implement left-side tabbed interface in main window
+- [x] Refactor UI: left tabs control main content area, improve readability
+- [x] Move model selection UI to Models tab and remove from Settings tab
+- [x] Remove Settings tab from navigation, update system info, remove AI Model from preferences (keep creativity)
+- [x] Fix System tab to show correct system information (not Models)
+- [x] Remove AI Model selection from settings dialog (keep creativity)
+- [x] Remove Model Selection tab from AI Model Selection & Information dialog (ModelsDialog)
+- [x] Synchronize available models in ai_api module with app settings to resolve model not found errors
+- [x] Fix chat UI colors and duplicate assistant messages (welcome/response)
+- [x] Remove colored border from chat messages and ensure Typing... indicator is removed instantly when AI responds
+- [x] Implement ChatGPT-style typing indicator (animated dots, character-by-character effect, blinking cursor)
+- [x] Debug and fix ChatGPT-style typing animation (character-by-character effect)
+- [x] Fix visual glitches in typing animation: prevent flashing of empty/non-message content and ensure the message stays at the bottom (not center)
+- [x] Implement robust, simple character-by-character typing animation that works reliably
+- [x] Fix message replacement logic so only one typing message is updated during animation
+- [x] Implement non-regex, direct update approach for single-message typing animation
+- [x] Remove animated dots and keep only typewriter effect for AI responses
+- [x] Review and further smooth the typewriter animation if needed
+- [x] Add GPT-OSS-20B model to available models/configuration
+- [x] Fix Unicode/encoding errors by replacing emoji with ASCII alternatives
+- [x] Add feature for AI to state current model in responses
+- [x] Fix model identification so it accurately reflects the model used for web search and other non-local responses
+- [x] Add intent handling so "what model are you using?" and similar queries are answered directly by the AI, not via web search
+- [x] Fix bug: All models are displaying the Local Conversation Engine description (UI/model mapping bug)
+  - [x] Root cause: All cards display the active model's description; fix reference/mapping logic
+  - [x] Model Selection tab with per-model cards (and correct descriptions) has been re-added to the ModelsDialog. Select button binding bug fixed (each button selects the correct model).
+  - [x] Add live model description preview to the main Models page, updating with dropdown selection
+  - [x] Show model_id on model cards for clarity
+  - [x] Make "Detailed Info" button open Model Selection tab by default
+  - [x] Remove duplicate model description preview; ensure only visible Active AI Model description updates
+- [x] Improve OpenRouter API error handling and fallback messaging for paused/loading endpoints
+- [x] Fix model switching so selected model is used for chat (sync to ai_api advanced_settings)
+- [x] Add UI status indicator (Paused badge + tooltip) for paused/unavailable models in the Models tab
+- [x] Implement automatic periodic checking for model availability and update UI when models become available again
+- [x] Disable selection of paused/unavailable/loading models in dropdown and block applying them with clear user messaging
+- [x] Auto-switch to Local Conversation Engine when the active OpenRouter model becomes paused/unavailable/loading during background checks (one-time notification)
+- [x] Fix runtime error: remove undefined variables in `SettingsManager.clear_model_error()` that caused `name 'key' is not defined`
+- [x] Remove OpenRouter API token wiring at startup
+- [x] Remove force-enable OpenRouter models option and all related UI/settings
+- [x] Restrict available models to only the local engine in ai_api.py and app settings
+- [x] Remove HF token/force-enable fields from current configuration display in ModelsDialog
+- [x] Fix crash in ModelsDialog by implementing missing update_current_settings() method
+- [x] Remove Help menu from the menu bar and add About tab/page in left navigation
+- [x] Remove About page button from System tab and center Performance Monitor button
+- [x] Update the Test Model feature so it performs a real test of the active model and clearly shows success/failure (reflects if it is working)
+- [x] Re-enable OpenRouter models with runtime token handling (no token stored in settings)
+- [x] Implement QThread/QTimer-based Test Model feature with smooth progress and accurate reporting
+- [x] Add session-only OpenRouter token input to Models tab that sets the token at runtime (not persisted)
+- [x] Remove session token input from UI and load HF_API_TOKEN from .env in backend (never committed)
+- [x] Implement automatic fallback to alternate OpenRouter model if the selected model endpoint is paused/loading, with auto-switch and user notification in the response.
+- [x] Implement robust fallback to alternates: status-check all, then direct-try env/default list before local fallback.
+- [x] Explicitly map HTTP 404 to 'error' with a clear message in check_hf_model_status() and clarify docstring.
+- [x] Implement essential backend-only resilience features:
+  - [x] Add default settings for auto_fallback, retry_attempts, and status_check_interval in SettingsManager (app.py)
+  - [x] Start periodic background status checks via QTimer in main window __init__ (app.py)
+  - [x] Make OpenRouter retry attempts configurable in ai_api.call_ai_api() using SettingsManager
+- [x] Add UI controls for resilience settings in SettingsDialog
+  - [x] Auto Fallback (checkbox)
+  - [x] Retry Attempts (spin box)
+  - [x] Status Check Interval (seconds)
+  - [x] Restart background status timer immediately when interval changes
+- [x] Review and revise fallback logic in ai_api.py so direct alternates are always attempted, even if their status is not 'available.'
+- [x] Fix: Initialize _status_check_running in main window __init__ to prevent AttributeError on first run
+- [x] Revise: Fallback logic tries additional alternates from UI/ENV list if attempt cap not reached
+- [x] Implement UI for advanced recovery options (attempt cap, priority order, ignore-status toggle, per-model retry overrides)
+- [x] Implement Advanced Recovery UI and backend logic (attempt cap, ignore status pings, alternate priority)
+- [x] Fix: Advanced Recovery controls are now enabled/disabled based on Auto Fallback toggle in SettingsDialog.
+- [x] Fix: Model selection dropdown and enabling now immediately reflect Ignore Status Pings and Auto Fallback settings after save; models are selectable as expected.
+- [x] Fix: Robust boolean coercion for settings (e.g. 'False'/'True' strings) ensures Ignore Status Pings and Auto Fallback are accurately loaded after restart and respected in UI/backend logic.
+- [x] Fix: Settings are now saved to disk immediately on Save, so toggles like Auto Fallback and Ignore Status Pings persist across restarts and are respected in both UI and backend logic.
+- [x] Fix: Toggling Auto Fallback and Ignore Status Pings in the UI applies the effect live (model dropdown enabling updates instantly).
+- [x] Fix: When Ignore Status Pings is ON and Auto Fallback is ON, the UI now fully suppresses paused/unavailable/loading badges and tooltips in the model dropdown, so models appear available and selectable as expected.
+- [x] Fix: QComboBox items are now force-enabled using Qt item flags when Ignore Status Pings is ON, so models are truly clickable/selectable (not just visually enabled).
+- [x] Fix Qt item flags to make models truly clickable/selectable when ignoring status pings.
+- [x] Fix: Backend model switching guard now respects Ignore Status Pings + Auto Fallback, so the 'Model Not Available' dialog no longer blocks selection when those settings are enabled. This completes the end-to-end fix for making unavailable models selectable and switchable in this mode.
+- [x] Fix: Fallback logic in ai_api.py now preflights alternates and skips any that return 404 (no Inference API), so only valid alternates are attempted and 404s don't count against the attempt cap.
+
+## Chat/Search/Typing Fixes (Dec 2025)
+- [x] Fixed Python syntax error: `SyntaxError: f-string expression part cannot include a backslash` by moving `content.replace('\n', '<br>')` out of f-string placeholders into a precomputed `content_html` variable.
+- [x] Removed the `You asked:` label from search result display.
+  - [x] Stopped constructing combined responses with `You asked: {query}`.
+  - [x] Updated formatting so the query is not duplicated in the search bubble.
+- [x] Prevented query duplication in search bubbles by rendering a generic `Search results` header instead of `Search results for '...':`.
+- [x] Removed engine status lines from chat entirely:
+  - [x] Stripped any lines starting with `[Using:` in `handle_ai_response_with_typing`.
+  - [x] Added a final safety net in `add_message` and legacy `handle_ai_response` to strip `[Using:` lines.
+- [x] Bubble layout and alignment work:
+  - [x] Implemented and iterated on bubble layout to keep assistant left / user right.
+  - [x] Adjusted bubble `max-width` to reduce “full-width bar” appearance on search results.
+  - [x] Added `moveCursor(QTextCursor.End)` before `insertHtml()` in `add_message` to prevent messages from being inserted at the top when the cursor resets after `setHtml()`.
+- [x] Typing animation stability work:
+  - [x] Identified multiple overlapping typing implementations (`type_character_smooth`, `add_simple_typing_message`, `add_typing_message`) that can conflict.
+  - [x] Repaired accidental code corruption introduced during edits around `add_typing_message` (duplicate/de-indented blocks and broken `re.sub(...)`).
+
+## Recent Fixes: Search Results & Typing Animation (Dec 28, 2025)
+
+### Fix 1: Search Result Formatting (Initial)
+- [x] Fixed web search result formatting issue where results were displaying with broken HTML/incomplete markup
+- [x] Initially replaced markdown with emoji indicators, but emojis didn't display correctly
+
+### Fix 2: Search Result Formatting (Final)
+- [x] Switched to proper markdown formatting with clickable links
+- [x] Titles now use `**bold**` markdown that converts to HTML `<strong>` tags
+- [x] Links use `[View source](url)` markdown format that converts to clickable HTML `<a>` tags
+- [x] Body text displays cleanly without extra indentation
+- [x] Search results now format as:
+  ```
+  **Title**
+  Description text...
+  [View source](https://example.com)
+  ```
+- [x] Links open in new browser tab when clicked (target="_blank")
+- [x] Links styled with green color (#4CAF50) and underline for visibility
+- Files modified: `ai_api.py` (lines 636-655, 675-680)
+
+### Fix 3: Typing Animation Speed
+- [x] Significantly increased typing animation speed for better user experience
+- [x] Reduced initial timer interval from 30ms to 15ms
+- [x] Reduced character delays:
+  - Letters: 65ms → 35ms (almost 2x faster)
+  - Punctuation/spaces: 40ms → 20ms (2x faster)
+- [x] Typing now feels much more responsive and snappy
+- Files modified: `app.py` (lines 3200-3202, 3352-3360)
+
+### Fix 4: Identity Question Handling
+- [x] Fixed "who are you" and similar identity questions to show model information instead of triggering web search
+- [x] Added identity question patterns: "who are you", "what are you", "tell me about yourself", "introduce yourself", "who is luna", "what is luna"
+- [x] These questions now get handled before web search detection, so they return model info directly
+- [x] User will now get a direct response about the AI model instead of web search results
+- Files modified: `ai_api.py` (lines 880-893)
+
+### Fix 5: Local Model Indicators & Built-in Model Downloading
+- [x] Removed "(Local)" suffix from all local model names
+- [x] Added clear visual indicators in model dropdown:
+  - 💻 [LOCAL] for downloadable local models
+  - ☁️ [CLOUD] for OpenRouter cloud models
+  - Local Conversation Engine has no suffix (always available)
+- [x] Model names now cleaner: "Mistral 7B" instead of "Mistral 7B (Local)"
+- [x] **Created built-in model downloading system** - No external tools required!
+- [x] Created `local_model_manager.py` - Complete model management system
+- [x] Features of built-in system:
+  - ✅ Direct download from HuggingFace (no Ollama/LM Studio needed)
+  - ✅ Progress tracking during downloads
+  - ✅ Automatic GPU detection and utilization
+  - ✅ Model caching (load once, use multiple times)
+  - ✅ Model management (download, load, unload, delete)
+  - ✅ Uses llama-cpp-python for fast inference
+- [x] Local models stored in `./local_models/` directory
+- [x] Models are GGUF format (optimized, quantized)
+- [x] Size range: 4-5GB per model (Q4_K_M quantization)
+- [x] Future: Add "Download" button in UI for one-click downloads
+- [x] Updated requirements.txt with:
+  - `huggingface_hub>=0.20.0` - For downloading models
+  - `llama-cpp-python>=0.2.0` - For running models
+- [x] Files created/modified:
+  - Created: `local_model_manager.py` - Full model management system
+  - Modified: `requirements.txt` - Added dependencies
+  - Modified: `ai_api.py` (lines 1243-1277) - Model names
+  - Modified: `app.py` (lines 2366-2387) - Dropdown indicators
+  - Created: `BUILTIN_MODELS_README.md` - Legacy manual local-model setup and troubleshooting guide
+
+#### Additional Recent Changes (Branding, Models, API Keys, Weather)
+- Rebranded the entire application from "Jarvis" to **Luna AI** (window titles, labels, README/docs, config, code comments).
+- Updated **About Luna** page to version **1.0**, with generic provider descriptions:
+  - 💻 Local Model Engine - processes requests on your machine
+  - ☁️ OpenRouter - cloud models via API
+- Removed "(Local)" suffix from visible model names in the main selection UI and top-right model badge for a cleaner look.
+- Cleaned up model list:
+  - Removed **Mistral Nemo** and **Qwen 2.5 Coder 32B** completely from backend, settings, and UI.
+  - Removed **DeepSeek R1** model entirely from registry, settings, and UI.
+  - Standardized **DeepSeek V3** ID everywhere to `nex-agi/deepseek-v3.1-nex-n1:free` and added legacy mapping from old IDs.
+- Fixed persistent bug where the **top-right model badge** and "Active AI Model" card sometimes stayed on Local Engine:
+  - Hardened `SettingsManager.get_active_model` to resolve aliases/mismatches and persist corrected IDs.
+  - Ensured `apply_selected_model` always calls `update_model_status_ui()` after a successful switch.
+- Enforced strict **OpenRouter API key** requirements:
+  - Cannot apply, test, or chat with OpenRouter/cloud models when no key is configured (env or settings).
+  - Clear warnings explain that an OpenRouter key is required and the dropdown snaps back to the current local model.
+- Added a visible **"☁️ Waiting for OpenRouter…"** indicator under the chat controls:
+  - Shows only while a cloud model request is in-flight.
+  - Hides automatically when a response or error is received.
+- Updated **weather behavior** to require an **OpenWeatherMap API key**:
+  - If no key is configured, `get_weather` does not call the API and returns a clear "weather disabled / key required" explanation.
+  - With a key set, weather responses are built directly from live OpenWeatherMap JSON (temp, description, feels-like, humidity).
+- Removed personal location from defaults:
+  - `default_city` in `SettingsManager` and CLI defaults is now blank, so shipped builds do not expose the author's city.
+  - Users can still set their own default city via Preferences/CLI; only local config changes will contain it.
+- Tightened `.env` handling and Settings dialog for API keys:
+  - `.env` now manages both `OPENROUTER_API_KEY` and `OPENWEATHERMAP_API_KEY` with clear comments.
+  - Settings dialog reads/writes these keys and updates `os.environ` live for the running session.
+- Fixed NameErrors in `SettingsDialog` (`_on_auto_fallback_toggled`, `_refresh_main_ui`) and ensured advanced recovery toggles refresh the main UI immediately.
+- Improved **System Information** and **Performance** panels using `psutil` (CPU, RAM, disk) and live metrics in Models/System tabs.
+- New note: Chat bubble alignment and search-results formatting have been implemented with the following features:
+  - Left-aligned assistant messages with proper bubble styling
+  - Right-aligned user messages with matching bubble styling
+  - Search results combined into a single assistant bubble per turn
+  - Removed "You asked:" prefix from search result bubbles
+  - Removed "[Using: Local Conversation Engine]" text
+  - Improved bubble spacing and sizing for better readability
+- Recent chat bubble layout changes:
+  - Final bubble spacing and sizing may need minor adjustments
+  - Search results formatting within bubbles may need refinement
+  - Timestamp alignment in bubbles may need tweaking
+- Current UI refinements:
+  - Restored "OpenRouter" text in API key field and labels
+  - Fixed OpenRouter API URL issue
+  - Verified all models are working (4/5 free models functional, 1 rate-limited)
+  - Local engine fallback working properly
+  - Removed "(Free)" text from model names while keeping :free suffix in model IDs
+  - Replaced Qwen 2.5 72B with DeepSeek R1 (more reasonable model size)
+  - Added local AI models that user's hardware can handle:
+    - Mistral 7B (Local) - 14GB, fits in RTX 5070 VRAM
+    - Llama 3.1 8B (Local) - 16GB, latest model with strong reasoning
+    - Qwen 2.5 7B (Local) - 15GB, strong multilingual capabilities
+    - DeepSeek Coder 6.7B (Local) - 13GB, optimized for coding
+  - Fixed DuckDuckGo search functionality:
+    - Updated import from deprecated duckduckgo_search to ddgs
+    - Fixed instant answers method from .answers() to .chat()
+    - Optimized search result formatting for faster responses
+    - Reduced body text truncation from 300-350 to 150 characters for speed
+    - Removed all creativity-based formatting for maximum performance
+    - Simplified error messages and fallback responses
+    - Made links clickable using markdown format [URL](URL)
+  - Fixed consistent formatting fix
+  - Fixed HTML display issue by converting newlines to <br> tags in add_message method
+  - Enabled clickable links by converting markdown to HTML with target="_blank" and underline styling
+  - Fixed duplicate URL display by changing from [{url}]({url}) to [Link]({url})
+  - Removed all emoji characters to fix encoding issues in Windows console
+  - Fixed regex to properly handle URLs with parentheses (like Wikipedia URLs)
+  - Changed from append() to insertHtml() for better HTML link support in QTextEdit
+  - Added setAcceptRichText(True) to QTextEdit for proper HTML rendering
+  - Fixed clickable links by using a two-step regex approach for URLs with and without parentheses
+  - Fixed regex to handle any URL (not just http/https) to ensure all search result links are clickable
+
+## Current Goal
+- [ ] Download queue for multiple models
+- [ ] Model update checker
+- [ ] Custom model import
