@@ -78,7 +78,7 @@ If you prefer to create it manually, make a new `.env` file next to `app.py` wit
 OPENROUTER_API_KEY=your_openrouter_key_here
 
 # OpenWeatherMap API Configuration (optional - for weather)
-# Get your API key from: https://openweathermap.org/api
+# Get your API key from: https://home.openweathermap.org/api_keys
 OPENWEATHERMAP_API_KEY=your_openweathermap_key_here
 ```
 ---

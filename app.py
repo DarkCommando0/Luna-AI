@@ -146,11 +146,11 @@ class SettingsDialog(QDialog):
         self.openweathermap_api_key.setPlaceholderText("Enter your OpenWeatherMap API key (optional)")
         api_keys_layout.addRow("OpenWeatherMap API Key:", self.openweathermap_api_key)
         
-        owm_info = QLabel("Get your OpenWeatherMap API key from: https://openweathermap.org/api")
+        owm_info = QLabel("Get your OpenWeatherMap API key from: https://home.openweathermap.org/api_keys")
         owm_info.setStyleSheet("color: #888; font-size: 11px;")
         owm_info.setOpenExternalLinks(True)
         owm_info.setTextFormat(Qt.TextFormat.RichText)
-        owm_info.setText('<a href="https://openweathermap.org/api" style="color: #4CAF50;">Get OpenWeatherMap API Key</a>')
+        owm_info.setText('<a href="https://home.openweathermap.org/api_keys" style="color: #4CAF50;">Get OpenWeatherMap API Key</a>')
         api_keys_layout.addRow("", owm_info)
         
         # Status display
