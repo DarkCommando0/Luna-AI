@@ -8,7 +8,7 @@
   "response_delay": 0.1,
   "search_results_limit": 3,
   "conversation_memory": 10,
-  "current_ai_model": "openai/gpt-oss-120b:free",
+  "current_ai_model": "local_engine",
   "api_timeout": 30,
   "auto_fallback": true,
   "retry_attempts": 2,
