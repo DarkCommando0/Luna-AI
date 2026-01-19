@@ -1181,7 +1181,13 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                         response = openrouter_api.query_model(current_model, original_message)
                     else:  # Default to OpenRouter
                         response = openrouter_api.query_model(current_model, original_message)
-                    
+
+                    # If we got a completely empty/whitespace response, treat it as an error
+                    # so we don't render a blank Luna bubble. Use a generic exception so the
+                    # existing error handler path is reused.
+                    if not str(response).strip():
+                        raise Exception("Empty response from OpenRouter model")
+
                     # Clear any previous errors if successful
                     if settings_manager is not None:
                         settings_manager.clear_model_error(current_model)
@@ -1417,8 +1423,8 @@ def get_available_models():
         },
         
         # OpenRouter Free Models
-        "nex-agi/deepseek-v3.1-nex-n1:free": {
-            "name": "DeepSeek V3",
+        "deepseek/deepseek-r1-0528:free": {
+            "name": "DeepSeek R1",
             "type": "openrouter",
             "provider": "openrouter",
             "description": "DeepSeek's latest conversational model optimized for chat interactions and instruction following",
@@ -1432,6 +1438,14 @@ def get_available_models():
             "description": "Open-source 20B parameter language model based on GPT architecture with strong general-purpose capabilities",
             "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
             "status": "available"
+        },
+        "openai/gpt-oss-120b:free": {
+            "name": "OpenAI GPT-OSS 120B",
+            "type": "openrouter",
+            "provider": "openrouter",
+            "description": "Larger GPT-OSS 120B parameter model for more demanding reasoning and generation tasks",
+            "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
+            "status": "available"
         }
     }
 
@@ -1442,7 +1456,8 @@ def set_current_model(model_id: str):
     
     # Normalize some known legacy IDs to current OpenRouter slugs
     legacy_map = {
-        "deepseek/deepseek-chat-v3-0324:free": "nex-agi/deepseek-v3.1-nex-n1:free",
+        "deepseek/deepseek-chat-v3-0324:free": "deepseek/deepseek-r1-0528:free",
+        "nex-agi/deepseek-v3.1-nex-n1:free": "deepseek/deepseek-r1-0528:free",
     }
     if model_id in legacy_map:
         model_id = legacy_map[model_id]

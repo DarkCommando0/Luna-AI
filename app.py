@@ -752,8 +752,8 @@ class SettingsManager:
                     "features": ["code_generation", "programming_assistance", "debugging", "offline", "privacy"],
                     "status": "available"
                 },
-                "nex-agi/deepseek-v3.1-nex-n1:free": {
-                    "name": "DeepSeek V3",
+                "deepseek/deepseek-r1-0528:free": {
+                    "name": "DeepSeek R1",
                     "type": "openrouter",
                     "description": "DeepSeek's latest conversational model optimized for chat interactions and instruction following",
                     "features": ["conversation", "instruction_following", "reasoning", "multilingual"],
@@ -763,6 +763,13 @@ class SettingsManager:
                     "name": "OpenAI GPT-OSS 20B",
                     "type": "openrouter",
                     "description": "Open-source 20B parameter language model based on GPT architecture with strong general-purpose capabilities",
+                    "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
+                    "status": "available"
+                },
+                "openai/gpt-oss-120b:free": {
+                    "name": "OpenAI GPT-OSS 120B",
+                    "type": "openrouter",
+                    "description": "Larger GPT-OSS 120B parameter model for more demanding reasoning and generation tasks",
                     "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
                     "status": "available"
                 }

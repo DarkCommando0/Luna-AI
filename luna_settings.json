@@ -8,7 +8,7 @@
   "response_delay": 0.1,
   "search_results_limit": 3,
   "conversation_memory": 10,
-  "current_ai_model": "local_engine",
+  "current_ai_model": "openai/gpt-oss-120b:free",
   "api_timeout": 30,
   "auto_fallback": true,
   "retry_attempts": 2,
@@ -89,8 +89,8 @@
       ],
       "status": "available"
     },
-    "nex-agi/deepseek-v3.1-nex-n1:free": {
-      "name": "DeepSeek V3",
+    "deepseek/deepseek-r1-0528:free": {
+      "name": "DeepSeek R1",
       "type": "openrouter",
       "description": "DeepSeek's latest conversational model optimized for chat interactions and instruction following",
       "features": [
@@ -113,19 +113,36 @@
         "multilingual"
       ],
       "status": "available"
+    },
+    "openai/gpt-oss-120b:free": {
+      "name": "OpenAI GPT-OSS 120B",
+      "type": "openrouter",
+      "description": "Larger GPT-OSS 120B parameter model for more demanding reasoning and generation tasks",
+      "features": [
+        "conversation",
+        "reasoning",
+        "code_generation",
+        "knowledge_retrieval",
+        "multilingual"
+      ],
+      "status": "available"
     }
   },
   "hf_api_token": "",
   "openrouter_api_key": "",
   "force_enable_hf_models": false,
   "model_errors": {
-    "openai/gpt-oss-20b:free": {
-      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1767300733.5161192
-    },
     "nex-agi/deepseek-v3.1-nex-n1:free": {
       "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1767300733.5161192
+      "timestamp": 1768850679.9960072
+    },
+    "deepseek/deepseek-r1-0528:free": {
+      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
+      "timestamp": 1768852621.3596437
+    },
+    "openai/gpt-oss-20b:free": {
+      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
+      "timestamp": 1768852621.3596437
     }
   }
 }

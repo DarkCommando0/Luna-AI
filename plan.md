@@ -306,20 +306,21 @@
 - Removed "(Local)" suffix from visible model names in the main selection UI and top-right model badge for a cleaner look.
 - Cleaned up model list:
   - Removed **Mistral Nemo** and **Qwen 2.5 Coder 32B** completely from backend, settings, and UI.
-  - Removed **DeepSeek R1** model entirely from registry, settings, and UI.
-  - Standardized **DeepSeek V3** ID everywhere to `nex-agi/deepseek-v3.1-nex-n1:free` and added legacy mapping from old IDs.
-- Fixed persistent bug where the **top-right model badge** and "Active AI Model" card sometimes stayed on Local Engine:
-  - Hardened `SettingsManager.get_active_model` to resolve aliases/mismatches and persist corrected IDs.
-  - Ensured `apply_selected_model` always calls `update_model_status_ui()` after a successful switch.
-- Enforced strict **OpenRouter API key** requirements:
-  - Cannot apply, test, or chat with OpenRouter/cloud models when no key is configured (env or settings).
-  - Clear warnings explain that an OpenRouter key is required and the dropdown snaps back to the current local model.
-- Added a visible **"☁️ Waiting for OpenRouter…"** indicator under the chat controls:
-  - Shows only while a cloud model request is in-flight.
-  - Hides automatically when a response or error is received.
+  - Replaced older DeepSeek OpenRouter entries with **DeepSeek R1** and standardized its ID to `deepseek/deepseek-r1-0528:free`, mapping legacy DeepSeek IDs (e.g., `nex-agi/deepseek-v3.1-nex-n1:free`) to this slug.
+  - Fixed persistent bug where the **top-right model badge** and "Active AI Model" card sometimes stayed on Local Engine:
+    - Hardened `SettingsManager.get_active_model` to resolve aliases/mismatches and persist corrected IDs.
+    - Ensured `apply_selected_model` always calls `update_model_status_ui()` after a successful switch.
+  - Model dropdown/error badge wording: removed "UNAVAILABLE" label for error state; now shows a softer `[ERROR]` badge.
+  - OpenWeatherMap API key link updated to `https://home.openweathermap.org/api_keys` in Settings and README `.env` example.
+  - Enforced strict **OpenRouter API key** requirements:
+    - Cannot apply, test, or chat with OpenRouter/cloud models when no key is configured (env or settings).
+    - Clear warnings explain that an OpenRouter key is required and the dropdown snaps back to the current local model.
+  - Guard against blank OpenRouter/DeepSeek responses: if the cloud model returns only empty/whitespace text, it is now treated as an error so Luna falls back instead of showing an empty assistant bubble.
+  - Added a visible **"☁️ Waiting for OpenRouter…"** indicator under the chat controls:
+    - Shows only while a cloud model request is in-flight.
+    - Hides automatically when a response or error is received.
 - Updated **weather behavior** to require an **OpenWeatherMap API key**:
   - If no key is configured, `get_weather` does not call the API and returns a clear "weather disabled / key required" explanation.
-  - With a key set, weather responses are built directly from live OpenWeatherMap JSON (temp, description, feels-like, humidity).
 - Removed personal location from defaults:
   - `default_city` in `SettingsManager` and CLI defaults is now blank, so shipped builds do not expose the author's city.
   - Users can still set their own default city via Preferences/CLI; only local config changes will contain it.
