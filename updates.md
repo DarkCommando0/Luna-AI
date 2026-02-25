@@ -24,13 +24,14 @@
 
 ### UI Optimization & Logic Fixes
 - Modified `app.py`'s `update_selected_model_download_info` to correctly toggle the visibility (`setVisible()`) of the "Download Selected Local Model" and "Open Model Folder" buttons depending on the type of the active model.
-- ☁️ **Cloud Models**: Both buttons are now completely hidden.
-- 🖥️ **Local Conversation Engine**: The Download button is hidden, while the Open Folder button remains visible.
-- 📂 **Local Conversation Engine Folder Logic**: Modified `open_selected_model_folder` so that when the Local Engine is selected, clicking the Open Folder button routes directly to the `user_data` directory instead of the normal local models directory.
-- 📥 **Other Local Models**: Both buttons remain visible and function normally.
-- 🐛 **UI Model Sync Fix**: Fixed a bug where `app.py` would forcefully reset the backend model to the Local Engine on system startup, causing the top-right model status badge to desync from the "Active AI Model" card displaying the actually selected model.
+-  **Cloud Models**: Both buttons are now completely hidden.
+-  **Local Conversation Engine**: The Download button is hidden, while the Open Folder button remains visible.
+-  **Local Conversation Engine Folder Logic**: Modified `open_selected_model_folder` so that when the Local Engine is selected, clicking the Open Folder button routes directly to the `user_data` directory instead of the normal local models directory.
+-  **Other Local Models**: Both buttons remain visible and function normally.
+-  **UI Model Sync Fix**: Fixed a bug where `app.py` would forcefully reset the backend model to the Local Engine on system startup, causing the top-right model status badge to desync from the "Active AI Model" card displaying the actually selected model.
 
 ## Current Goal
 - [ ] Download queue for multiple models
 - [ ] Model update checker
 - [ ] Custom model import
+
