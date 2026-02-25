@@ -141,7 +141,7 @@ pip install llama-cpp-python --force-reinstall --no-cache-dir
 
 **Download fails or is slow:**
 - Check your internet connection
-- Download happens only once per model
+- Redownload your model(s) by clicking the redownload button on the model page
 - Files cached in `./local_models/` directory
 
 **Not enough disk space:**
@@ -184,3 +184,4 @@ If you prefer using external tools instead of the built-in downloader, you can s
 - GPT4All
 - llama.cpp
 - Text Generation WebUI
+
