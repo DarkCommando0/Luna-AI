@@ -796,13 +796,6 @@ def get_weather(city=None):
     Requires an OpenWeatherMap API key. If no key is configured, returns a
     clear explanation instead of attempting a network call.
     """
-    # Require a city to be provided
-    if not city or not city.strip():
-        return (
-            "I don't have a city set for weather. Please go to Settings and enter a "
-            "Default Weather City, or ask me about the weather in a specific city (e.g. 'weather in Miami')."
-        )
-
     # Prefer key from environment, then from settings (if available)
     api_key = os.getenv("OPENWEATHERMAP_API_KEY", "")
     try:
@@ -825,6 +818,13 @@ def get_weather(city=None):
                 "key is configured. Please add your key in Settings or the .env "
                 "file to enable weather."
             )
+
+    # Require a city to be provided (only checked when API key exists)
+    if not city or not city.strip():
+        return (
+            "I don't have a city set for weather. Please go to Settings and enter a "
+            "Default Weather City, or ask me about the weather in a specific city (e.g. 'weather in Miami')."
+        )
 
     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
     try:
