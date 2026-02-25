@@ -176,12 +176,6 @@ Models use Q4_K_M quantization:
 - Minimal quality loss
 - 4x smaller than full precision
 
-## Future Features (Coming Soon)
-
-- [ ] Download queue for multiple models
-- [ ] Model update checker
-- [ ] Custom model import
-
 ## Need Help?
 
 If you prefer using external tools instead of the built-in downloader, you can still manage models with third-party tools such as:
