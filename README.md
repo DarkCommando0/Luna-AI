@@ -12,7 +12,7 @@ Luna AI Assistant is a desktop chatbot and assistant for Windows with:
 - **Web search**, **weather**, and **system commands** (all user-toggleable in Settings).
 - A modern Qt-based UI with model management, system info, and performance metrics.
 
-This README is safe for distribution: it assumes a clean clone of the repo and **does not include any API keys, downloaded models, or personal data**.
+This Luna AI repo is a clean clone and **does not include any API keys, downloaded models, or personal data**.
 
 ---
 
@@ -154,3 +154,4 @@ For questions about packaging or extending Luna AI (new models, providers, or fe
 - `ai_api.py` — AI routing, OpenRouter integration, local engine, search, weather, and system commands.
 - `local_model_manager.py` — local GGUF model management.
 - `luna.py` — command-line interface.
+
