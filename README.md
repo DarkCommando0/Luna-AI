@@ -42,9 +42,21 @@ Follow these steps on Windows:
    - A PowerShell (or terminal) window will open with its current directory set to the Luna folder.
 
 3. **Install dependencies**
-   ```powershell
-   pip install -r requirements.txt
-   ```
+   - Run the main installer:
+     ```powershell
+     pip install -r requirements.txt
+     ```
+   - **⚠️ If you get a "Failed building wheel for llama-cpp-python" error:**
+     This happens because Windows is missing a C++ compiler.
+     
+     **Recommended Fix (Build Tools):**
+     1. Download the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+     2. In the installer, select **"Desktop development with C++"**.
+     3. In the components panel, ensure these are checked:
+        - **MSVC v143** compiler
+        - **Windows 11 SDK** (or Windows 10 SDK)
+        - **CMake tools for Windows**
+     4. Click Install, then restart your terminal and run `pip install -r requirements.txt` again.
 
 4. **Run Luna**
    ```powershell

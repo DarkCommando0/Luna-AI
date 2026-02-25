@@ -7,26 +7,26 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Any, Dict, Optional, Callable, Union
 
 # We treat downloads and inference as separate capabilities:
 #  - huggingface_hub is needed for downloading GGUF files
 #  - llama-cpp-python is needed only for running local inference
 
 try:
-    from huggingface_hub import hf_hub_download, snapshot_download
+    from huggingface_hub import hf_hub_download, snapshot_download  # type: ignore[import-not-found]
     HF_DOWNLOAD_AVAILABLE = True
 except ImportError:
     HF_DOWNLOAD_AVAILABLE = False
 
 try:
-    from llama_cpp import Llama
+    from llama_cpp import Llama  # type: ignore[import-not-found]
     LLAMA_AVAILABLE = True
 except ImportError:
     # llama-cpp-python not available; keep type hints working with a stub
     LLAMA_AVAILABLE = False
 
-    class Llama:  # type: ignore
+    class Llama:  # type: ignore[no-redef]
         """Placeholder Llama class used when llama-cpp-python is unavailable.
 
         All runtime methods that rely on real local model support are
@@ -34,13 +34,17 @@ except ImportError:
         It only prevents NameError from annotations like Optional[Llama].
         """
 
-        pass
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+            pass
 
 
 class LocalModelManager:
     """Manages local AI model downloads and inference"""
     
-    def __init__(self, models_dir: Optional[str] = None):
+    def __init__(self, models_dir: Union[str, Path, None] = None):
         """Initialize the local model manager.
 
         Args:
@@ -85,7 +89,8 @@ class LocalModelManager:
             pass
         
         self.config_file = self.models_dir / "models_config.json"
-        self.loaded_models = {}  # Cache for loaded models
+        self.loaded_models: Dict[str, Any] = {}  # Cache for loaded models
+        self.config: Dict[str, Any] = {}  # Model config, populated by _load_config
         
         # Model registry with HuggingFace repo IDs and filenames
         self.model_registry = {
@@ -136,7 +141,7 @@ class LocalModelManager:
             return False
         
         model_info = self.model_registry[model_id]
-        model_path = self.models_dir / model_info["filename"]
+        model_path = self.models_dir / str(model_info["filename"])
         return model_path.exists()
     
     def get_model_path(self, model_id: str) -> Optional[Path]:
@@ -145,15 +150,16 @@ class LocalModelManager:
             return None
         
         model_info = self.model_registry[model_id]
-        return self.models_dir / model_info["filename"]
+        return self.models_dir / str(model_info["filename"])
     
-    def download_model(self, model_id: str, progress_callback: Optional[Callable] = None) -> bool:
+    def download_model(self, model_id: str, progress_callback: Optional[Callable] = None, force: bool = False) -> bool:
         """
         Download a model from HuggingFace.
         
         Args:
             model_id: Model identifier (e.g., "local/mistral-7b-instruct")
             progress_callback: Optional callback function(current, total, status_msg)
+            force: If True, re-download even if the model file already exists.
         
         Returns:
             True if successful, False otherwise
@@ -167,8 +173,18 @@ class LocalModelManager:
             return False
         
         if self.is_model_downloaded(model_id):
-            print(f"[INFO] Model {model_id} already downloaded")
-            return True
+            if not force:
+                print(f"[INFO] Model {model_id} already downloaded")
+                return True
+            # Force re-download: remove the existing file first
+            print(f"[INFO] Force re-downloading model {model_id}...")
+            try:
+                existing_path = self.get_model_path(model_id)
+                if existing_path and existing_path.exists():
+                    self.unload_model(model_id)
+                    existing_path.unlink()
+            except Exception as e:
+                print(f"[WARN] Could not remove existing model file: {e}")
         
         model_info = self.model_registry[model_id]
         
@@ -287,7 +303,7 @@ class LocalModelManager:
     def unload_model(self, model_id: str):
         """Unload a model from memory"""
         if model_id in self.loaded_models:
-            del self.loaded_models[model_id]
+            self.loaded_models.pop(model_id)
             print(f"[INFO] Model {model_id} unloaded from memory")
     
     def delete_model(self, model_id: str) -> bool:
@@ -305,7 +321,7 @@ class LocalModelManager:
             
             # Update config
             if model_id in self.config:
-                del self.config[model_id]
+                self.config.pop(model_id)
                 self._save_config()
             
             print(f"[SUCCESS] Model {model_id} deleted")

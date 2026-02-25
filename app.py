@@ -3,17 +3,17 @@ import os
 import json
 import time
 import uuid
-import psutil
+import psutil  # type: ignore[import-not-found]
 import platform
 from datetime import datetime
 
 # Add the path to find ai_api module
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import ai_api
+import ai_api  # type: ignore[import-not-found]
 
-from PySide6.QtCore import Qt, QSize, QThread, Signal, QTimer
-from PySide6.QtGui import QPalette, QColor, QFont, QIcon, QTextCursor, QPixmap
-from PySide6.QtWidgets import (
+from PySide6.QtCore import Qt, QSize, QThread, Signal, QTimer  # type: ignore[import-not-found]
+from PySide6.QtGui import QPalette, QColor, QFont, QIcon, QTextCursor, QPixmap  # type: ignore[import-not-found]
+from PySide6.QtWidgets import (  # type: ignore[import-not-found]
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QPushButton, QLabel, QSizePolicy, QDialog,
     QFormLayout, QSpinBox, QComboBox, QCheckBox, QTabWidget, QScrollArea,
@@ -21,12 +21,12 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QFrame, QTextBrowser
 )
 
-from local_model_manager import get_manager as get_local_model_manager
+from local_model_manager import get_manager as get_local_model_manager  # type: ignore[import-not-found]
 
 # Enhanced Settings Dialog with model selection
 class SettingsDialog(QDialog):
     def __init__(self, settings_manager, parent=None):
-        super().__init__(parent)
+        super().__init__(parent)  # type: ignore[call-arg]
         self.settings_manager = settings_manager
         self.setWindowTitle("Luna Settings")
         self.setFixedSize(500, 750)
@@ -223,7 +223,7 @@ class SettingsDialog(QDialog):
         self.ignore_status_pings.setToolTip("If enabled, alternates may be attempted even when status pings report paused/error.")
         other_advanced_layout.addRow("Ignore Status Pings:", self.ignore_status_pings)
 
-        from PySide6.QtWidgets import QLineEdit as _QLineEditAlias
+        from PySide6.QtWidgets import QLineEdit as _QLineEditAlias  # type: ignore[import-not-found]
         self.alternate_priority = _QLineEditAlias()
         self.alternate_priority.setPlaceholderText("model_id1, model_id2, ...")
         self.alternate_priority.setToolTip("Preferred order of alternate OpenRouter model IDs (comma-separated).")
@@ -372,13 +372,13 @@ class SettingsDialog(QDialog):
                 os.environ['OPENROUTER_API_KEY'] = or_key
             else:
                 if 'OPENROUTER_API_KEY' in os.environ:
-                    del os.environ['OPENROUTER_API_KEY']
+                    os.environ.pop('OPENROUTER_API_KEY')
                     
             if owm_key:
                 os.environ['OPENWEATHERMAP_API_KEY'] = owm_key
             else:
                 if 'OPENWEATHERMAP_API_KEY' in os.environ:
-                    del os.environ['OPENWEATHERMAP_API_KEY']
+                    os.environ.pop('OPENWEATHERMAP_API_KEY')
             # Apply OpenRouter token to backend client immediately so models
             # are not treated as unavailable after saving the key.
             try:
@@ -408,9 +408,9 @@ class SettingsDialog(QDialog):
             
             # Clear environment variables
             if 'OPENROUTER_API_KEY' in os.environ:
-                del os.environ['OPENROUTER_API_KEY']
+                os.environ.pop('OPENROUTER_API_KEY')
             if 'OPENWEATHERMAP_API_KEY' in os.environ:
-                del os.environ['OPENWEATHERMAP_API_KEY']
+                os.environ.pop('OPENWEATHERMAP_API_KEY')
                 
             self.update_api_status_display("ℹ️ API keys cleared (no keys to save)")
             # Update provider status display
@@ -589,7 +589,7 @@ class SettingsDialog(QDialog):
                 try:
                     for w in QApplication.topLevelWidgets():
                         if hasattr(w, 'update_model_status_ui'):
-                            w.update_model_status_ui()
+                            w.update_model_status_ui()  # type: ignore[attr-defined]
                             break
                 except Exception:
                     pass
@@ -787,8 +787,8 @@ class SettingsManager:
             "session_start": time.time(),
             "memory_usage": 0.0
         }
-        self.model_errors = {}  # Track errors by model_id: {error: str, timestamp: float}
-        self.model_status = {}  # Track status of each model: 'available', 'paused', 'error', 'checking'
+        self.model_errors: dict = {}  # Track errors by model_id: {error: str, timestamp: float}
+        self.model_status: dict = {}  # Track status of each model: 'available', 'paused', 'error', 'checking'
 
     def set_model_status(self, model_id: str, status: str, error=None):
         """Set the status for a model and record/clear error accordingly."""
@@ -797,19 +797,19 @@ class SettingsManager:
         self.model_status[model_id] = status
         if status == 'available':
             # Clear any recorded error
-            if model_id in self.model_errors:
-                del self.model_errors[model_id]
-            if 'model_errors' not in self.settings:
-                self.settings['model_errors'] = {}
-            if model_id in self.settings['model_errors']:
-                del self.settings['model_errors'][model_id]
+            self.model_errors.pop(model_id, None)
+            model_errors_store = self.settings.get('model_errors')  # type: ignore[union-attr]
+            if not isinstance(model_errors_store, dict):
+                self.settings['model_errors'] = {}  # type: ignore[index]
+                model_errors_store = self.settings['model_errors']  # type: ignore[index]
+            model_errors_store.pop(model_id, None)
         else:
             # Save/Update error
             msg = error or ('Paused' if status == 'paused' else 'Unavailable')
-            self.model_errors[model_id] = {'error': msg, 'timestamp': time.time()}
-            if 'model_errors' not in self.settings:
-                self.settings['model_errors'] = {}
-            self.settings['model_errors'][model_id] = {'error': msg, 'timestamp': time.time()}
+            self.model_errors[model_id] = {'error': msg, 'timestamp': time.time()}  # type: ignore[assignment]
+            if not isinstance(self.settings.get('model_errors'), dict):  # type: ignore[union-attr]
+                self.settings['model_errors'] = {}  # type: ignore[index]
+            self.settings['model_errors'][model_id] = {'error': msg, 'timestamp': time.time()}  # type: ignore[index]
     
     def load_settings(self):
         try:
@@ -820,7 +820,7 @@ class SettingsManager:
                     settings = self.default_settings.copy()
                     settings.update(loaded)
                     # Update available models to include new ones
-                    settings["available_models"] = self.default_settings["available_models"].copy()
+                    settings["available_models"] = self.default_settings["available_models"].copy()  # type: ignore[union-attr]
                     return settings
         except Exception:
             pass
@@ -852,7 +852,7 @@ class SettingsManager:
             self.model_status[model_id] = 'paused'
         else:
             self.model_status[model_id] = 'error'
-        self.settings['model_errors'][model_id] = {
+        self.settings['model_errors'][model_id] = {  # type: ignore[index, assignment, index]
             'error': error,
             'timestamp': time.time()
         }
@@ -871,12 +871,12 @@ class SettingsManager:
         
     def clear_model_error(self, model_id: str):
         """Clear any recorded error for a model"""
-        if model_id in self.model_errors:
-            del self.model_errors[model_id]
+        self.model_errors.pop(model_id, None)
         if model_id in self.model_status:
             self.model_status[model_id] = 'available'
-        if model_id in self.settings['model_errors']:
-            del self.settings['model_errors'][model_id]
+        model_errors_store = self.settings.get('model_errors')  # type: ignore[union-attr]
+        if isinstance(model_errors_store, dict) and model_id in model_errors_store:
+            model_errors_store.pop(model_id, None)
         self.save_settings()
     
     def get_active_model(self):
@@ -906,7 +906,7 @@ class SettingsManager:
 
         target = _norm(current_model_id)
         candidates = []
-        for mid, info in models.items():
+        for mid, info in models.items():  # type: ignore[union-attr]
             norm_key = _norm(mid)
             norm_name = _norm(info.get("name", mid))
             suffix = norm_key.split("/")[-1] if "/" in norm_key else norm_key
@@ -921,10 +921,10 @@ class SettingsManager:
                 self.save_settings()
             except Exception:
                 pass
-            return _with_id(mapped, models.get(mapped, {}))
+            return _with_id(mapped, models.get(mapped, {}))  # type: ignore[union-attr]
 
         # Fallback to local engine
-        local = models.get("local_engine", {})
+        local = models.get("local_engine", {})  # type: ignore[union-attr]
         return _with_id("local_engine", local)
     
     def update_performance_metrics(self, response_time):
@@ -947,7 +947,7 @@ class SettingsManager:
 # Enhanced AI Models Management Dialog with model selection
 class ModelsDialog(QDialog):
     def __init__(self, settings_manager, parent=None):
-        super().__init__(parent)
+        super().__init__(parent)  # type: ignore[call-arg]
         self.settings_manager = settings_manager
         self.setWindowTitle("Luna Model Information")
         self.setFixedSize(750, 600)
@@ -1177,8 +1177,8 @@ class ModelsDialog(QDialog):
             model_path_text = ""
             if self.local_model_manager is not None:
                 try:
-                    downloaded = self.local_model_manager.is_model_downloaded(model_id)
-                    path_obj = self.local_model_manager.get_model_path(model_id)
+                    downloaded = self.local_model_manager.is_model_downloaded(model_id)  # type: ignore[union-attr]
+                    path_obj = self.local_model_manager.get_model_path(model_id)  # type: ignore[union-attr]
                     if path_obj is not None:
                         model_path_text = str(path_obj)
                 except Exception:
@@ -1331,7 +1331,7 @@ class ModelsDialog(QDialog):
 
                 # Refresh model path information
                 try:
-                    path_obj = self.local_model_manager.get_model_path(mid)
+                    path_obj = self.local_model_manager.get_model_path(mid)  # type: ignore[union-attr]
                     if path_obj is not None:
                         path_text = str(path_obj)
                         if path_label is not None:
@@ -1370,14 +1370,14 @@ class ModelsDialog(QDialog):
                 return
 
         try:
-            path_obj = self.local_model_manager.get_model_path(model_id)
+            path_obj = self.local_model_manager.get_model_path(model_id)  # type: ignore[union-attr]
             if not path_obj:
                 QMessageBox.information(self, "Model Not Downloaded", "This model has not been downloaded yet.")
                 return
 
             folder = os.path.dirname(str(path_obj))
             if sys.platform.startswith("win"):
-                os.startfile(folder)
+                getattr(os, 'startfile')(folder)
             elif sys.platform == "darwin":
                 import subprocess
                 subprocess.Popen(["open", folder])
@@ -1899,7 +1899,7 @@ class ModelsDialog(QDialog):
                     rt = time.time() - start
                     self.finished_with_result.emit(None, e, rt)
         
-        worker = TestWorker(test_dialog)
+        worker = TestWorker(test_dialog)  # type: ignore[call-arg]
         test_dialog._worker = worker
         
         # Smooth progress updates
@@ -1958,7 +1958,7 @@ class ModelsDialog(QDialog):
                 
                 if failed_reason:
                     trimmed = (response or '')
-                    preview = trimmed[:200]
+                    preview = trimmed[:200]  # type: ignore[index]
                     if not isinstance(trimmed, str) or len(trimmed or '') <= 200:
                         suffix = '"'
                     else:
@@ -1979,7 +1979,7 @@ class ModelsDialog(QDialog):
                         f"Time: {response_time:.3f} seconds\n"
                         f"Model ID: {active_model_id}\n"
                         f"Model Type: {model_type}\n"
-                        f"Response: \"{response[:200]}{'...' if len(response) > 200 else ''}\"\n\n"
+                        f"Response: \"{response[:200]}{'...' if len(response) > 200 else ''}\"\n\n"  # type: ignore[index]
                         f"[OK] Core Features Working:\n"
                         f"• Response generation and processing\n"
                         f"• System integration and communication\n"
@@ -2052,14 +2052,11 @@ class LunaMainWindow(QMainWindow):
         ai_api.set_settings_manager(self.settings_manager)
         # (Removed) OpenRouter Inference API token wiring
         
-        # Ensure AI backend uses the local engine by default at startup
+        # Ensure AI backend uses the user's saved active model at startup
         try:
-            # Force local_engine as the default model if not already set
-            current_model_id = self.settings_manager.get("current_ai_model")
-            if not current_model_id or current_model_id != "local_engine":
-                current_model_id = "local_engine"
-                self.settings_manager.set("current_ai_model", current_model_id)
-                
+            current_model_info = self.settings_manager.get_active_model()
+            current_model_id = current_model_info.get("id", "local_engine")
+            
             ai_api.set_current_model(current_model_id)
             ai_api.update_advanced_settings({'current_model': current_model_id})
             print(f"[OK] Synced startup model to ai_api: {current_model_id}")
@@ -2068,7 +2065,7 @@ class LunaMainWindow(QMainWindow):
 
         # Start periodic background model status checks (no UI change)
         try:
-            from PySide6.QtCore import QTimer as _QTimerAlias  # ensure available
+            from PySide6.QtCore import QTimer as _QTimerAlias  # type: ignore[import-not-found]  # ensure available
             self.model_status_timer = _QTimerAlias(self)
             self.model_status_timer.timeout.connect(self.start_model_status_check)
             interval_sec = int(self.settings_manager.get("status_check_interval", 300))
@@ -2173,7 +2170,7 @@ class LunaMainWindow(QMainWindow):
         content_layout.addLayout(header_layout)
         
         # Stacked widget for different content pages
-        from PySide6.QtWidgets import QStackedWidget
+        from PySide6.QtWidgets import QStackedWidget  # type: ignore[import-not-found]
         self.content_stack = QStackedWidget()
         
         # Create content pages
@@ -2203,7 +2200,7 @@ class LunaMainWindow(QMainWindow):
             "chat": "Chat",
             "models": "AI Models", 
             "system": "System Information",
-            "about": "About Luna"
+            "about": "About Luna AI"
         }
         self.content_title.setText(titles.get(content_type, "Luna AI"))
         
@@ -2221,13 +2218,6 @@ class LunaMainWindow(QMainWindow):
         about_widget = QWidget()
         layout = QVBoxLayout(about_widget)
 
-        # Simple text header only (no icon here)
-        header = QLabel("About Luna AI")
-        header.setStyleSheet(
-            "font-size: 20px; font-weight: bold; color: #4CAF50; padding: 10px;"
-        )
-        layout.addWidget(header)
-
         # Scrollable about text
         info = QTextBrowser()
         info.setStyleSheet(
@@ -2241,29 +2231,28 @@ class LunaMainWindow(QMainWindow):
 
         about_html_parts = []
         about_html_parts.append(
-            "Luna AI"  # keep title simple; window already says Luna AI
+            "<span style='font-size: 16px; color: #e0e0e0; font-weight: bold;'>"
+            "A powerful desktop AI assistant featuring seamless integration with blazing-fast local models and OpenRouter cloud APIs."
+            "</span>"
             "<br><br>"
-            "An advanced desktop AI assistant with multiple model support, "
-            "including fast local models and OpenRouter cloud models."
+            "<br>"
+            "<span style='font-size: 17px; color: #4CAF50;'><b>Version 1.0.1</b></span>"
+            "<br>"
             "<br><br>"
             "<b>Features:</b>"
             "<ul>"
             "<li>Multiple AI model support (local engine and OpenRouter)</li>"
-            "<li>Simple API key management for cloud models</li>"
-            "<li>Local and cloud processing modes</li>"
+            "<li>Built-in direct downloading for local GGUF models</li>"
+            "<li>Adjustable advanced recovery options and API key management</li>"
+            "<li>Typewriter-style chat animations and refined UI</li>"
             "<li>Weather integration (OpenWeatherMap)</li>"
-            "<li>Optional web search assistance</li>"
-            "<li>Optional system command execution</li>"
-            "<li>Adjustable creativity and response behavior</li>"
-            "<li>Provider-aware model catalog with status indicators</li>"
+            "<li>Optional web search assistance and system command execution</li>"
             "</ul>"
-            "<br><br>"
-            "<b>Version:</b> 1.0"
             "<br><br>"
             "<b>Providers:</b>"
             "<ul>"
             "<li>💻 Local engine (runs entirely on your machine)</li>"
-            "<li>🔵 OpenRouter (cloud AI model provider)</li>"
+            "<li>☁️ OpenRouter (cloud AI model provider)</li>"
             "<li>🌤️ OpenWeatherMap (weather data)</li>"
             "</ul>"
         )
@@ -2679,7 +2668,7 @@ class LunaMainWindow(QMainWindow):
         
         # Load available models from code (ai_api). Fallback to settings if unavailable.
         try:
-            from ai_api import get_available_models as _get_available_models
+            from ai_api import get_available_models as _get_available_models  # type: ignore[import-not-found]
             available_models = _get_available_models()
         except Exception:
             available_models = self.settings_manager.get("available_models")
@@ -2967,7 +2956,7 @@ class LunaMainWindow(QMainWindow):
     
     def export_chat(self):
         """Export chat to a text file"""
-        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QFileDialog  # type: ignore[import-not-found]
         
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Export Chat", f"luna_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", 
@@ -3026,13 +3015,13 @@ class LunaMainWindow(QMainWindow):
             try:
                 hc = hex_color.strip()
                 if hc.startswith('#'):
-                    hc = hc[1:]
+                    hc = hc[1:]  # type: ignore[index]
                 # Expand shorthand like '999' to '999999'
                 if len(hc) == 3:
                     hc = ''.join(ch * 2 for ch in hc)
-                r = int(hc[0:2], 16)
-                g = int(hc[2:4], 16)
-                b = int(hc[4:6], 16)
+                r = int(hc[0:2], 16)  # type: ignore[index]
+                g = int(hc[2:4], 16)  # type: ignore[index]
+                b = int(hc[4:6], 16)  # type: ignore[index]
                 # Clamp alpha between 0 and 1
                 a = max(0.0, min(1.0, float(alpha)))
                 return f"rgba({r}, {g}, {b}, {a})"
@@ -3335,20 +3324,35 @@ class LunaMainWindow(QMainWindow):
         if hasattr(self, 'model_download_path_label'):
             self.model_download_path_label.setText("")
 
-        # If this is not a local downloadable model, disable download/folder controls
         available_models = self.settings_manager.get("available_models", {})
         model_info = available_models.get(model_id, {})
         is_local = (model_id.startswith("local/") and model_id != "local_engine") or model_info.get("type") == "local"
 
-        if not is_local:
+        # 1. Cloud models -> Hide both buttons
+        if not is_local and model_id != "local_engine":
             if hasattr(self, 'model_download_btn'):
-                self.model_download_btn.setEnabled(False)
+                self.model_download_btn.setVisible(False)
+            if hasattr(self, 'model_open_folder_btn'):
+                self.model_open_folder_btn.setVisible(False)
             return
 
-        # Local model: enable download button and show current path if downloaded
+        # 2. Local Engine -> Hide download, Show open folder
+        if model_id == "local_engine":
+            if hasattr(self, 'model_download_btn'):
+                self.model_download_btn.setVisible(False)
+            if hasattr(self, 'model_open_folder_btn'):
+                self.model_open_folder_btn.setVisible(True)
+                self.model_open_folder_btn.setEnabled(True)
+            return
+
+        # 3. Other Local Models -> Show both buttons
         if hasattr(self, 'model_download_btn'):
+            self.model_download_btn.setVisible(True)
             self.model_download_btn.setEnabled(True)
             self.model_download_btn.setText("Download Selected Local Model")
+        
+        if hasattr(self, 'model_open_folder_btn'):
+            self.model_open_folder_btn.setVisible(True)
 
         if not self._ensure_local_model_manager_main():
             return
@@ -3396,14 +3400,21 @@ class LunaMainWindow(QMainWindow):
         if hasattr(self, 'model_download_btn'):
             self.model_download_btn.setEnabled(False)
 
+        # Determine if this is a re-download (model already exists on disk)
+        try:
+            is_redownload = self.local_model_manager_main.is_model_downloaded(model_id)
+        except Exception:
+            is_redownload = False
+
         class MainDownloadWorker(QThread):
             progress = Signal(int, int, str)
             finished_with_result = Signal(bool, str)
 
-            def __init__(self, manager, model_id):
+            def __init__(self, manager, model_id, force):
                 super().__init__()
                 self.manager = manager
                 self.model_id = model_id
+                self.force = force
 
             def run(self):
                 def _cb(current, total, msg):
@@ -3412,17 +3423,17 @@ class LunaMainWindow(QMainWindow):
                     except Exception:
                         pass
 
-                success = self.manager.download_model(self.model_id, progress_callback=_cb)
+                success = self.manager.download_model(self.model_id, progress_callback=_cb, force=self.force)
                 self.finished_with_result.emit(success, self.model_id)
 
-        worker = MainDownloadWorker(self.local_model_manager_main, model_id)
+        worker = MainDownloadWorker(self.local_model_manager_main, model_id, force=is_redownload)
         self._main_download_worker = worker
 
         def _ensure_download_timer():
             """Create a simple timer that animates the bar while downloading."""
             if hasattr(self, '_download_progress_timer') and self._download_progress_timer is not None:
                 return
-            from PySide6.QtCore import QTimer as _QTimerAlias
+            from PySide6.QtCore import QTimer as _QTimerAlias  # type: ignore[import-not-found]
             self._download_progress_timer = _QTimerAlias(self)
             self._download_progress_timer.setInterval(150)
 
@@ -3518,6 +3529,27 @@ class LunaMainWindow(QMainWindow):
         if not model_id:
             return
 
+        # If local_engine, open the user_data folder instead of looking for a downloaded model
+        if model_id == "local_engine":
+            try:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                user_data_dir = os.path.join(base_dir, "user_data")
+                if not os.path.exists(user_data_dir):
+                    os.makedirs(user_data_dir, exist_ok=True)
+                folder = user_data_dir
+                if sys.platform.startswith("win"):
+                    getattr(os, 'startfile')(folder)
+                elif sys.platform == "darwin":
+                    import subprocess
+                    subprocess.Popen(["open", folder])
+                else:
+                    import subprocess
+                    subprocess.Popen(["xdg-open", folder])
+                return
+            except Exception as e:
+                QMessageBox.warning(self, "Open Folder Failed", f"Could not open user_data folder:\n{e}")
+                return
+
         try:
             path_obj = self.local_model_manager_main.get_model_path(model_id)
             if not path_obj:
@@ -3526,7 +3558,7 @@ class LunaMainWindow(QMainWindow):
 
             folder = os.path.dirname(str(path_obj))
             if sys.platform.startswith("win"):
-                os.startfile(folder)
+                getattr(os, 'startfile')(folder)
             elif sys.platform == "darwin":
                 import subprocess
                 subprocess.Popen(["open", folder])
@@ -3582,9 +3614,9 @@ class LunaMainWindow(QMainWindow):
             os_label = f"{os_name} {platform.release()}"
             if os_name == "Windows":
                 try:
-                    import winreg
-                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion") as key:
-                        product_name, _ = winreg.QueryValueEx(key, "ProductName")
+                    import winreg  # type: ignore[import-not-found]
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion") as key:  # type: ignore[attr-defined]
+                        product_name, _ = winreg.QueryValueEx(key, "ProductName")  # type: ignore[attr-defined]
                         if product_name:
                             os_label = product_name
                 except Exception:
@@ -3708,7 +3740,7 @@ class LunaMainWindow(QMainWindow):
                 # First part is the header line from the engine, but we don't
                 # want to repeat the question text here. Use a generic label.
                 # Rest are the search results, but filter out non-result parts
-                result_parts = [p for p in parts[1:] if p.strip() and not p.startswith('[Using:')]
+                result_parts = [p for p in parts[1:] if p.strip() and not p.startswith('[Using:')]  # type: ignore[index]
                 
                 # Generic header with extra margin bottom
                 header_text = 'Search results'
@@ -3722,7 +3754,7 @@ class LunaMainWindow(QMainWindow):
                         # Convert newlines to <br> for proper line breaks
                         part_html = part_html.replace('\n', '<br>')
                         # Wrap in a div with border and padding - increased margin
-                        message_html += f'<div style="margin: 25px 0; padding: 15px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'
+                        message_html += f'<div style="margin: 25px 0; padding: 15px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'  # type: ignore[operator]
             else:
                 # Fallback - just convert newlines to <br>
                 message_html = message.replace('\n', '<br>')
@@ -4014,7 +4046,7 @@ class LunaMainWindow(QMainWindow):
                                 # Convert newlines to <br> for proper line breaks
                                 part_html = part_html.replace('\n', '<br>')
                                 # Wrap in a div with border and padding - increased margin
-                                message_html += f'<div style="margin: 25px 0; padding: 15px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'
+                                message_html += f'<div style="margin: 25px 0; padding: 15px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'  # type: ignore[operator]
                 else:
                     # Fallback - just convert newlines to <br>
                     message_html = text.replace('\n', '<br>')
@@ -4039,7 +4071,7 @@ class LunaMainWindow(QMainWindow):
                             # Convert newlines to <br> for proper line breaks
                             part_html = part_html.replace('\n', '<br>')
                             # Wrap in a div with border and padding
-                            message_html += f'<div style="margin: 15px 0; padding: 10px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'
+                            message_html += f'<div style="margin: 15px 0; padding: 10px; border: 1px solid #444; border-radius: 5px; background-color: #333;">{part_html}</div>'  # type: ignore[operator]
                 else:
                     # Fallback - just convert newlines to <br>
                     message_html = text.replace('\n', '<br>')
@@ -4234,7 +4266,7 @@ class LunaMainWindow(QMainWindow):
         search_parts = search_part.split('\n\n')
         if search_parts and 'Search results for' in search_parts[0]:
             # Filter out non-result parts
-            result_parts = [p for p in search_parts[1:] if p.strip() and not p.startswith('[Using:')]
+            result_parts = [p for p in search_parts[1:] if p.strip() and not p.startswith('[Using:')]  # type: ignore[index]
             
             # Process each search result
             for part in result_parts:
@@ -4247,7 +4279,7 @@ class LunaMainWindow(QMainWindow):
                         content_html = content.replace('\n', '<br>')
                         
                         # Format the result with better visual hierarchy
-                        message_html += f'''
+                        message_html += f'''  # type: ignore[operator]
                         <div style="margin: 0 0 16px 0; padding: 12px; border-radius: 6px; background-color: #2a2a2a;">
                             <div style="color: #3b82f6; margin-bottom: 6px; font-weight: 500;">{title}</div>
                             <div style="color: #d1d5db; font-size: 0.95em; line-height: 1.5;">
@@ -4282,7 +4314,7 @@ class LunaMainWindow(QMainWindow):
                 search_parts = search_part.split('\n\n')
                 if search_parts and 'Search results for' in search_parts[0]:
                     # Filter out non-result parts and process each result
-                    result_parts = [p for p in search_parts[1:] if p.strip() and not p.startswith('[Using:')]
+                    result_parts = [p for p in search_parts[1:] if p.strip() and not p.startswith('[Using:')]  # type: ignore[index]
                     
                     # Process each search result
                     for part in result_parts:
@@ -4295,7 +4327,7 @@ class LunaMainWindow(QMainWindow):
                                 content_html = content.replace('\n', '<br>')
                                 
                                 # Format the result with better visual hierarchy
-                                message_html += f'''
+                                message_html += f'''  # type: ignore[operator]
                                 <div style="margin: 0 0 16px 0; padding: 12px; border-radius: 6px; background-color: #2a2a2a;">
                                     <div style="color: #3b82f6; margin-bottom: 6px; font-weight: 500;">{title}</div>
                                     <div style="color: #d1d5db; font-size: 0.95em; line-height: 1.5;">
@@ -4331,7 +4363,7 @@ class LunaMainWindow(QMainWindow):
                                 content_html = content.replace('\n', '<br>')
                                 
                                 # Format the result with better visual hierarchy
-                                message_html += f'''
+                                message_html += f'''  # type: ignore[operator]
                                 <div style="margin: 0 0 16px 0; padding: 12px; border-radius: 6px; background-color: #2a2a2a;">
                                     <div style="color: #3b82f6; margin-bottom: 6px; font-weight: 500;">{title}</div>
                                     <div style="color: #d1d5db; font-size: 0.95em; line-height: 1.5;">
@@ -4377,7 +4409,8 @@ class LunaMainWindow(QMainWindow):
         
         # Use a single regex that handles all cases properly
         # This matches [text](url) where url can contain any characters except )
-        message_html = re.sub(
+        import re as _re
+        message_html = _re.sub(
             r'\[([^\]]+)\]\(([^)]+)\)',
             replace_markdown_link,
             message_html
@@ -4518,7 +4551,7 @@ class LunaMainWindow(QMainWindow):
                         except Exception:
                             pass
                     else:
-                        from PySide6.QtCore import QTimer as _QTimerAlias
+                        from PySide6.QtCore import QTimer as _QTimerAlias  # type: ignore[import-not-found]
                         self.model_status_timer = _QTimerAlias(self)
                         self.model_status_timer.timeout.connect(self.start_model_status_check)
                     self.model_status_timer.start(new_interval_sec * 1000)

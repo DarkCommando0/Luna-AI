@@ -138,11 +138,15 @@
     },
     "deepseek/deepseek-r1-0528:free": {
       "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1768852621.3596437
+      "timestamp": 1771992949.2351432
+    },
+    "openai/gpt-oss-120b:free": {
+      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
+      "timestamp": 1771992949.2351432
     },
     "openai/gpt-oss-20b:free": {
       "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1768852621.3596437
+      "timestamp": 1771992949.2351432
     }
   }
 }
