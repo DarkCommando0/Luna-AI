@@ -145,7 +145,7 @@ If a user deletes the entire **Luna AI** folder, all local data, models, and set
 
 ## 6. Support and Further Documentation
 
-- Project plan & change log: `plan.md`
+- Update log: `updates.md`
 - Built-in local model system: `BUILTIN_MODELS_README.md`
 
 For questions about packaging or extending Luna AI (new models, providers, or features), consult the source files:
