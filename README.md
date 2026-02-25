@@ -63,7 +63,7 @@ Follow these steps on Windows:
    python app.py
    ```
 
-Luna will create local files in the project folder (settings, `user_data/`, `local_models/`). These are **ignored by .gitignore** and should not be committed.
+Luna will create local files in the project folder (settings, `user_data/`, `local_models/`). These are **ignored by .gitignore** and will not be committed.
 
 ---
 
@@ -154,6 +154,7 @@ For questions about packaging or extending Luna AI (new models, providers, or fe
 - `ai_api.py` — AI routing, OpenRouter integration, local engine, search, weather, and system commands.
 - `local_model_manager.py` — local GGUF model management.
 - `luna.py` — command-line interface.
+
 
 
 
