@@ -6,6 +6,7 @@ Handles downloading and running AI models directly without external tools.
 import os
 import sys
 import json
+import threading
 from pathlib import Path
 from typing import Any, Dict, Optional, Callable, Union
 
@@ -121,6 +122,12 @@ class LocalModelManager:
         }
         
         self._load_config()
+
+        # Concurrency guard: only one hf_hub_download may run at a time.
+        # download_model acquires this with blocking=False so concurrent callers
+        # get an immediate False return instead of silently queuing up.
+        self._download_lock = threading.Lock()
+        self._active_download_id: Optional[str] = None
     
     def _load_config(self):
         """Load model configuration from disk"""
@@ -134,6 +141,47 @@ class LocalModelManager:
         """Save model configuration to disk"""
         with open(self.config_file, 'w') as f:
             json.dump(self.config, f, indent=2)
+
+    # ------------------------------------------------------------------
+    # Concurrency helpers
+    # ------------------------------------------------------------------
+
+    def is_downloading(self) -> bool:
+        """Return True if a download is currently in progress."""
+        return self._download_lock.locked()
+
+    @staticmethod
+    def _make_tqdm_class(progress_callback: Callable) -> Optional[type]:
+        """Return a tqdm-compatible class that fires *progress_callback* on
+        every chunk update so the frontend gets byte-level granularity.
+
+        The callback signature matches the existing contract:
+            progress_callback(current_bytes: int, total_bytes: int, msg: str)
+
+        Returns None when tqdm is not importable so the caller can fall back
+        gracefully.
+        """
+        try:
+            from tqdm import tqdm as _BaseTqdm  # type: ignore[import-not-found]
+        except ImportError:
+            return None
+
+        class _ProgressTqdm(_BaseTqdm):
+            """tqdm subclass that mirrors update() calls into progress_callback."""
+
+            def update(self, n: int = 1) -> bool:  # type: ignore[override]
+                result = super().update(n)
+                try:
+                    progress_callback(
+                        int(self.n),
+                        int(self.total) if self.total else 0,
+                        "",
+                    )
+                except Exception:
+                    pass
+                return result  # type: ignore[return-value]
+
+        return _ProgressTqdm
     
     def is_model_downloaded(self, model_id: str) -> bool:
         """Check if a model is already downloaded"""
@@ -155,26 +203,84 @@ class LocalModelManager:
     def download_model(self, model_id: str, progress_callback: Optional[Callable] = None, force: bool = False) -> bool:
         """
         Download a model from HuggingFace.
-        
+
+        Acquires a non-blocking threading.Lock so that a second concurrent call
+        (e.g. from a race between the frontend queue and a stale retry) is
+        rejected immediately with return False instead of spawning a second
+        hf_hub_download process.
+
+        Chunk-by-chunk progress is delivered via a custom tqdm subclass so
+        the frontend progress_callback receives byte-level updates rather than
+        just the start/finish events.
+
         Args:
             model_id: Model identifier (e.g., "local/mistral-7b-instruct")
-            progress_callback: Optional callback function(current, total, status_msg)
+            progress_callback: Optional callback(current_bytes, total_bytes, msg)
             force: If True, re-download even if the model file already exists.
-        
+
         Returns:
             True if successful, False otherwise
         """
         if not HF_DOWNLOAD_AVAILABLE:
             print("[ERROR] huggingface_hub not available. Cannot download models.")
             return False
-        
+
         if model_id not in self.model_registry:
             print(f"[ERROR] Unknown model: {model_id}")
             return False
-        
+
+        # --- Concurrency guard -------------------------------------------
+        # blocking=False means a second caller gets False immediately rather
+        # than silently queuing behind the active download.
+        acquired = self._download_lock.acquire(blocking=False)
+        if not acquired:
+            print(
+                f"[WARN] download_model: download already in progress for "
+                f"'{self._active_download_id}'. Rejecting concurrent request "
+                f"for '{model_id}'."
+            )
+            if progress_callback:
+                try:
+                    progress_callback(
+                        0, 0,
+                        f"Download already in progress for '{self._active_download_id}'"
+                    )
+                except Exception:
+                    pass
+            return False
+
+        self._active_download_id = model_id
+        try:
+            return self._run_download(model_id, progress_callback, force)
+        finally:
+            self._active_download_id = None
+            self._download_lock.release()
+
+    def _run_download(self, model_id: str, progress_callback: Optional[Callable], force: bool) -> bool:
+        """Internal: performs the actual hf_hub_download (runs under lock).
+
+        Progress delivery strategy
+        --------------------------
+        huggingface_hub >= 0.20 removed the `tqdm_class` kwarg from
+        hf_hub_download, and the internal module path for tqdm changes
+        between versions, so static module-path patching is fragile.
+
+        Instead we iterate sys.modules at call-time and patch every
+        huggingface_hub.* submodule that exposes a `tqdm` attribute.
+        This catches whichever import path the installed version actually
+        uses.  All patches are reversed in a `finally` block so the
+        process-wide state is never left dirty.
+        """
         if self.is_model_downloaded(model_id):
             if not force:
                 print(f"[INFO] Model {model_id} already downloaded")
+                if progress_callback:
+                    try:
+                        mi = self.model_registry[model_id]
+                        sz = mi['size_mb'] * 1024 * 1024
+                        progress_callback(sz, sz, "Already downloaded")
+                    except Exception:
+                        pass
                 return True
             # Force re-download: remove the existing file first
             print(f"[INFO] Force re-downloading model {model_id}...")
@@ -185,66 +291,159 @@ class LocalModelManager:
                     existing_path.unlink()
             except Exception as e:
                 print(f"[WARN] Could not remove existing model file: {e}")
-        
+
         model_info = self.model_registry[model_id]
-        
+
         try:
             print(f"[INFO] Downloading {model_id}...")
-            print(f"[INFO] Size: ~{model_info['size_mb']}MB")
-            
+            print(f"[INFO] Size: ~{model_info['size_mb']} MB")
+
             if progress_callback:
-                progress_callback(0, model_info['size_mb'], f"Starting download...")
-            
-            # Download the model file
-            downloaded_path = hf_hub_download(
-                repo_id=model_info["repo_id"],
-                filename=model_info["filename"],
-                cache_dir=str(self.models_dir),
-                local_dir=str(self.models_dir),
-                local_dir_use_symlinks=False
-            )
-            
-            # Update config
+                try:
+                    progress_callback(0, model_info['size_mb'] * 1024 * 1024, "Starting download...")
+                except Exception:
+                    pass
+
+            # ------------------------------------------------------------------
+            # Dynamically patch every huggingface_hub submodule that holds a
+            # `tqdm` attribute so chunk-level progress reaches the callback,
+            # regardless of which internal import path the installed version uses.
+            #
+            # Each patched class inherits from the module's OWN tqdm class
+            # (not the base tqdm.tqdm) so custom __init__ signatures — e.g. the
+            # `name` kwarg in huggingface_hub.xet_get — are fully preserved.
+            # ------------------------------------------------------------------
+            patched_modules: Dict[str, Any] = {}  # {module_name: original_tqdm}
+
+            if progress_callback is not None:
+                try:
+                    import tqdm as _tqdm_root
+                    orig_tqdm_base = _tqdm_root.tqdm
+
+                    _cb = progress_callback  # closure capture
+
+                    # Scan all already-imported huggingface_hub submodules.
+                    for mod_name, mod in list(sys.modules.items()):
+                        if not mod_name.startswith("huggingface_hub"):
+                            continue
+                        if mod is None:
+                            continue
+                        if not hasattr(mod, "tqdm"):
+                            continue
+
+                        orig = getattr(mod, "tqdm")
+
+                        # Only patch if it's actually a tqdm subclass; skip
+                        # plain functions, strings, or unrelated objects.
+                        if not (isinstance(orig, type) and issubclass(orig, orig_tqdm_base)):
+                            continue
+
+                        try:
+                            patched_modules[mod_name] = orig
+
+                            # Subclass the module's OWN tqdm so its custom
+                            # __init__ (e.g. xet_get's `name` kwarg) is kept.
+                            class _DynamicPatchedTqdm(orig):  # type: ignore[valid-type]
+                                def update(self, n: int = 1) -> None:  # type: ignore[override]
+                                    super().update(n)
+                                    try:
+                                        _cb(
+                                            int(self.n),
+                                            int(self.total) if self.total else 0,
+                                            "",
+                                        )
+                                    except Exception:
+                                        pass
+
+                            setattr(mod, "tqdm", _DynamicPatchedTqdm)
+                        except Exception:
+                            pass  # read-only attribute or other error — skip silently
+
+                    if patched_modules:
+                        print(f"[DEBUG] _run_download: patched tqdm in "
+                              f"{len(patched_modules)} huggingface_hub module(s): "
+                              f"{list(patched_modules.keys())}")
+                    else:
+                        print("[WARN] _run_download: no huggingface_hub modules with "
+                              "a tqdm subclass found; stderr capture is the fallback.")
+                except Exception as patch_err:
+                    print(f"[WARN] _run_download: sys.modules patch failed: {patch_err}")
+
+            hf_kwargs: Dict[str, Any] = {
+                "repo_id": model_info["repo_id"],
+                "filename": model_info["filename"],
+                "local_dir": str(self.models_dir),
+                "local_dir_use_symlinks": False,
+            }
+
+            try:
+                downloaded_path = hf_hub_download(**hf_kwargs)
+            finally:
+                # Restore every patched module unconditionally.
+                for mod_name, orig_tqdm in patched_modules.items():
+                    mod = sys.modules.get(mod_name)
+                    if mod is not None:
+                        try:
+                            setattr(mod, "tqdm", orig_tqdm)
+                        except Exception:
+                            pass
+                if patched_modules:
+                    print(f"[DEBUG] _run_download: tqdm restored in "
+                          f"{len(patched_modules)} module(s).")
+
+            # Persist metadata
             self.config[model_id] = {
                 "downloaded": True,
                 "path": str(downloaded_path),
                 "repo_id": model_info["repo_id"],
-                "filename": model_info["filename"]
+                "filename": model_info["filename"],
             }
             self._save_config()
-            
+
             if progress_callback:
-                progress_callback(model_info['size_mb'], model_info['size_mb'], "Download complete!")
-            
+                try:
+                    sz = model_info['size_mb'] * 1024 * 1024
+                    progress_callback(sz, sz, "Download complete!")
+                except Exception:
+                    pass
+
             print(f"[SUCCESS] Model {model_id} downloaded successfully!")
             return True
-            
+
         except Exception as e:
             print(f"[ERROR] Failed to download {model_id}: {e}")
             if progress_callback:
-                progress_callback(0, 100, f"Error: {str(e)}")
+                try:
+                    progress_callback(0, 0, f"Error: {e}")
+                except Exception:
+                    pass
             return False
     
     def load_model(self, model_id: str, n_ctx: int = 2048, n_gpu_layers: int = -1) -> Optional[Llama]:
         """
         Load a model into memory for inference.
-        
+
+        Path resolution is a pure filesystem check (model_registry filename +
+        models_dir); no HuggingFace API calls are made here.  The in-memory
+        cache means repeated calls for the same model_id are O(1) dict lookups.
+
         Args:
             model_id: Model identifier
             n_ctx: Context window size (default: 2048)
             n_gpu_layers: Number of layers to offload to GPU (-1 = all)
-        
+
         Returns:
             Loaded Llama model or None if failed
         """
         if not LLAMA_AVAILABLE:
             print("[ERROR] llama-cpp-python not available; local inference disabled")
             return None
-        
-        # Check cache first
+
+        # Fast path: already loaded in this session
         if model_id in self.loaded_models:
             return self.loaded_models[model_id]
-        
+
+        # Filesystem-only check — no network/HF API involved
         model_path = self.get_model_path(model_id)
         if not model_path:
             print(f"[ERROR] Model {model_id} not downloaded. Download it first.")

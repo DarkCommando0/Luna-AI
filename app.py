@@ -2037,6 +2037,9 @@ class LunaMainWindow(QMainWindow):
         # Track background status worker state to avoid overlapping runs
         self._status_check_running = False
         self.setWindowTitle("Luna AI")
+        self.download_queue = []
+        self._current_downloading_model = None
+        self._main_download_worker = None
         # Set Luna window/taskbar icon from assets if available
         try:
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2048,6 +2051,14 @@ class LunaMainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         self.setup_ui()
         self.apply_theme()
+    
+    def closeEvent(self, event):
+        """Handle application close event to clean up background tasks."""
+        if hasattr(self, "_main_download_worker") and self._main_download_worker is not None:
+            if self._main_download_worker.isRunning():
+                self._main_download_worker.quit()
+                self._main_download_worker.wait(2000)  # Wait up to 2 seconds
+        event.accept()
         # Set the settings manager in ai_api
         ai_api.set_settings_manager(self.settings_manager)
         # (Removed) OpenRouter Inference API token wiring
@@ -2726,10 +2737,10 @@ class LunaMainWindow(QMainWindow):
         selection_layout.addLayout(model_select_layout)
         
         # Apply model button
-        apply_model_btn = QPushButton("Apply Selected Model")
-        apply_model_btn.setStyleSheet(self.get_large_button_style("#4CAF50"))
-        apply_model_btn.clicked.connect(self.apply_selected_model)
-        selection_layout.addWidget(apply_model_btn)
+        self.apply_model_btn = QPushButton("Apply Selected Model")
+        self.apply_model_btn.setStyleSheet(self.get_large_button_style("#4CAF50"))
+        self.apply_model_btn.clicked.connect(self.apply_selected_model)
+        selection_layout.addWidget(self.apply_model_btn)
 
         # Download controls for local models (main Models page)
         download_layout = QVBoxLayout()
@@ -2738,23 +2749,30 @@ class LunaMainWindow(QMainWindow):
         self.model_download_btn.setStyleSheet(self.get_large_button_style("#2196F3"))
         self.model_download_btn.clicked.connect(self.download_selected_local_model)
 
-        self.model_download_progress = QProgressBar()
-        self.model_download_progress.setRange(0, 100)
-        self.model_download_progress.setValue(0)
-        self.model_download_progress.setVisible(False)
-        self.model_download_progress.setStyleSheet(
-            "QProgressBar {"
-            "    border: 1px solid #555;"
-            "    border-radius: 6px;"
-            "    text-align: center;"
+        self.model_add_to_queue_btn = QPushButton("Add to Download Queue")
+        self.model_add_to_queue_btn.setStyleSheet(self.get_large_button_style("#FF9800"))
+        self.model_add_to_queue_btn.clicked.connect(self.download_selected_local_model)
+        self.model_add_to_queue_btn.setVisible(False)
+
+        # Permanent Download Queue Panel
+        self.download_queue_list = QListWidget()
+        self.download_queue_list.setStyleSheet(
+            "QListWidget {"
             "    background-color: #2b2b2b;"
-            "    color: white;"
-            "}"
-            "QProgressBar::chunk {"
-            "    background-color: #4CAF50;"
-            "    border-radius: 4px;"
+            "    color: #cccccc;"
+            "    border: 1px solid #444;"
+            "    border-radius: 6px;"
+            "    padding: 8px;"
+            "    max-height: 120px;"
+            "    font-size: 12px;"
             "}"
         )
+        # Connect to removal logic
+        self.download_queue_list.itemClicked.connect(self.on_queue_item_clicked)
+        self.download_queue_list.setToolTip("Click a queued item to remove it from the list")
+        
+        # Add a default placeholder if empty (will be managed by _update_download_queue_ui)
+        self.download_queue_list.addItem("No pending downloads in queue.")
 
         self.model_open_folder_btn = QPushButton("Open Model Folder")
         self.model_open_folder_btn.setStyleSheet(self.get_large_button_style("#607D8B"))
@@ -2763,7 +2781,8 @@ class LunaMainWindow(QMainWindow):
 
         # Arrange vertically for cleaner layout under the dropdown
         download_layout.addWidget(self.model_download_btn)
-        download_layout.addWidget(self.model_download_progress)
+        download_layout.addWidget(self.model_add_to_queue_btn)
+        download_layout.addWidget(self.download_queue_list)
         download_layout.addWidget(self.model_open_folder_btn)
         selection_layout.addLayout(download_layout)
 
@@ -3309,6 +3328,222 @@ class LunaMainWindow(QMainWindow):
                 return False
         return True
 
+    def _update_download_queue_ui(self):
+        """Update the permanent queue panel UI state."""
+        if not hasattr(self, 'download_queue_list'):
+            return
+        
+        self.download_queue_list.clear()
+        
+        # If nothing is happening, show placeholder
+        if not self._current_downloading_model and not self.download_queue:
+            self.download_queue_list.addItem("No pending downloads in queue.")
+            # Style for empty state
+            self.download_queue_list.setStyleSheet(
+                "QListWidget { background-color: #2b2b2b; color: #888888; border: 1px solid #444; border-radius: 6px; padding: 8px; max-height: 250px; font-size: 12px; }"
+            )
+            return
+
+        # Active state styling
+        self.download_queue_list.setStyleSheet(
+            "QListWidget { background-color: #2b2b2b; color: white; border: 1px solid #2196F3; border-radius: 6px; padding: 8px; max-height: 250px; font-size: 12px; }"
+        )
+
+        if self._current_downloading_model:
+            model_disp = self._current_downloading_model.split('/')[-1] if '/' in self._current_downloading_model else self._current_downloading_model
+            item = QListWidgetItem()
+            self.download_queue_list.addItem(item)
+            
+            # Create a custom widget to hold the label and progress bar
+            from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QProgressBar
+            widget = QWidget()
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(4, 4, 4, 4)
+            layout.setSpacing(2)
+            
+            label = QLabel(f"▼ Downloading: {model_disp}")
+            label.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px;")
+            
+            pbar = QProgressBar()
+            pbar.setRange(0, 100)
+            pbar.setValue(0)
+            pbar.setTextVisible(True)
+            pbar.setStyleSheet("""
+                QProgressBar {
+                    background-color: #333333;
+                    color: white;
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    text-align: center;
+                    height: 14px;
+                    font-size: 11px;
+                }
+                QProgressBar::chunk {
+                    background-color: #4CAF50;
+                    border-radius: 3px;
+                }
+            """)
+            
+            layout.addWidget(label)
+            layout.addWidget(pbar)
+            
+            item.setSizeHint(widget.sizeHint())
+            self.download_queue_list.setItemWidget(item, widget)
+            
+        for queued_model in self.download_queue:
+            q_disp = queued_model.split('/')[-1] if '/' in queued_model else queued_model
+            item = QListWidgetItem(f"⏳ Queued: {q_disp} (Click to remove)")
+            item.setData(Qt.UserRole, queued_model) # Store the real ID
+            self.download_queue_list.addItem(item)
+
+    def process_download_queue(self):
+        """Process the download queue sequentially."""
+        if self._current_downloading_model is not None:
+            return  # Already downloading
+            
+        if not self.download_queue:
+            # Refresh buttons for currently selected model
+            try:
+                self._update_download_queue_ui()
+                self.update_selected_model_download_info()
+            except Exception:
+                pass
+            return
+            
+        # Dequeue the next model
+        model_id = self.download_queue.pop(0)
+        self._current_downloading_model = model_id
+        self._update_download_queue_ui()
+        
+        # Update button visibility for the newly started download
+        self.update_selected_model_download_info()
+
+        # Determine if this is a re-download
+        try:
+            is_redownload = self.local_model_manager_main.is_model_downloaded(model_id)
+        except Exception:
+            is_redownload = False
+
+        # Track download progress for speed/ETA calculation
+        self._dl_start_time = time.time()
+        self._dl_last_time = self._dl_start_time
+        self._dl_last_bytes = 0
+        self._last_dl_status = "Calculating..."
+
+        # Nested QThread Worker for background downloading
+        class MainDownloadWorker(QThread):
+            progress = Signal(object, object, str)
+            finished_with_result = Signal(bool, str)
+
+            def __init__(self, manager, model_id, force):
+                super().__init__()
+                self.manager = manager
+                self.model_id = model_id
+                self.force = force
+
+            def run(self):
+                try:
+                    def _cb(current, total, msg):
+                        try:
+                            # Directly emit progress from the backend callback
+                            self.progress.emit(current, total, str(msg))
+                        except Exception:
+                            pass
+                    success = self.manager.download_model(self.model_id, progress_callback=_cb, force=self.force)
+                    self.finished_with_result.emit(success, self.model_id)
+                except Exception as e:
+                    self.finished_with_result.emit(False, str(e))
+
+        worker = MainDownloadWorker(self.local_model_manager_main, model_id, force=is_redownload)
+        self._main_download_worker = worker
+
+        def _on_progress(current, total, msg):
+            if not hasattr(self, 'download_queue_list'):
+                return
+                
+            try:
+                # Find the active downloading progress bar via the first item
+                if self.download_queue_list.count() > 0:
+                    item = self.download_queue_list.item(0)
+                    if item:
+                        widget = self.download_queue_list.itemWidget(item)
+                        if widget:
+                            from PySide6.QtWidgets import QProgressBar, QLabel
+                            pbar = widget.findChild(QProgressBar)
+                            label = widget.findChild(QLabel)
+                            
+                            if pbar and total > 0:
+                                pct = int((current / total) * 100)
+                                pbar.setValue(pct)
+                                
+                                # Update speed and ETA occasionally (every 1s)
+                                now = time.time()
+                                dt = now - self._dl_last_time
+                                
+                                if dt >= 1.0 or current == total:
+                                    db = current - self._dl_last_bytes
+                                    speed = db / dt if dt > 0 else 0
+                                    
+                                    # Update trackers
+                                    self._dl_last_time = now
+                                    self._dl_last_bytes = current
+                                    
+                                    speed_mb = speed / (1024 * 1024)
+                                    
+                                    # ETA calculation
+                                    remaining_bytes = total - current
+                                    if speed > 0:
+                                        eta_sec = remaining_bytes / speed
+                                        eta_min = int(eta_sec // 60)
+                                        eta_sec = int(eta_sec % 60)
+                                        eta_str = f"{eta_min:02d}m {eta_sec:02d}s"
+                                    else:
+                                        eta_str = "--m --s"
+                                        
+                                    self._last_dl_status = f"{speed_mb:.1f} MB/s - ETA: {eta_str}"
+                                    
+                                # Update label with percentage and cached speed/eta info
+                                m_name = model_id.split('/')[-1] if '/' in model_id else model_id
+                                if label:
+                                    label.setText(f"▼ Downloading: {m_name} ({pct}%) - {self._last_dl_status}")
+            except Exception:
+                pass
+
+        def _on_finished(success, mid):
+            if not success:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Download Failed", f"Failed to download model: {mid}")
+            
+            try:
+                worker.deleteLater()
+            except Exception:
+                pass
+                
+            self._current_downloading_model = None
+            self._main_download_worker = None
+            self._update_download_queue_ui()
+            self.process_download_queue()
+
+        worker.progress.connect(_on_progress)
+        worker.finished_with_result.connect(_on_finished)
+        worker.start()
+
+    def on_queue_item_clicked(self, item):
+        """Handle clicking an item in the queue to remove it."""
+        model_id = str(item.data(Qt.UserRole))
+        if not model_id or model_id == "None":
+            return # Placeholder item
+            
+        # Confirm removal
+        if model_id in self.download_queue:
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(self, "Remove from Queue", f"Remove {model_id} from the download queue?", 
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                self.download_queue.remove(model_id)
+                self._update_download_queue_ui()
+                self.update_selected_model_download_info()
+
     def update_selected_model_download_info(self):
         """Update download button, path label, and folder button for the selected model."""
         if not hasattr(self, 'model_combo'):
@@ -3317,10 +3552,7 @@ class LunaMainWindow(QMainWindow):
         if not model_id:
             return
 
-        # Default state
-        if hasattr(self, 'model_download_progress'):
-            self.model_download_progress.setVisible(False)
-            self.model_download_progress.setValue(0)
+        # Default path label state
         if hasattr(self, 'model_download_path_label'):
             self.model_download_path_label.setText("")
 
@@ -3330,26 +3562,42 @@ class LunaMainWindow(QMainWindow):
 
         # 1. Cloud models -> Hide both buttons
         if not is_local and model_id != "local_engine":
-            if hasattr(self, 'model_download_btn'):
-                self.model_download_btn.setVisible(False)
-            if hasattr(self, 'model_open_folder_btn'):
-                self.model_open_folder_btn.setVisible(False)
+            if hasattr(self, 'apply_model_btn'): self.apply_model_btn.setVisible(True)
+            if hasattr(self, 'model_download_btn'): self.model_download_btn.setVisible(False)
+            if hasattr(self, 'model_add_to_queue_btn'): self.model_add_to_queue_btn.setVisible(False)
+            if hasattr(self, 'model_open_folder_btn'): self.model_open_folder_btn.setVisible(False)
             return
 
         # 2. Local Engine -> Hide download, Show open folder
         if model_id == "local_engine":
-            if hasattr(self, 'model_download_btn'):
-                self.model_download_btn.setVisible(False)
+            if hasattr(self, 'apply_model_btn'): self.apply_model_btn.setVisible(True)
+            if hasattr(self, 'model_download_btn'): self.model_download_btn.setVisible(False)
+            if hasattr(self, 'model_add_to_queue_btn'): self.model_add_to_queue_btn.setVisible(False)
             if hasattr(self, 'model_open_folder_btn'):
                 self.model_open_folder_btn.setVisible(True)
                 self.model_open_folder_btn.setEnabled(True)
             return
 
-        # 3. Other Local Models -> Show both buttons
-        if hasattr(self, 'model_download_btn'):
-            self.model_download_btn.setVisible(True)
-            self.model_download_btn.setEnabled(True)
-            self.model_download_btn.setText("Download Selected Local Model")
+        # 3. Other Local Models -> Handle Queueing visibility
+        if hasattr(self, 'apply_model_btn'):
+            self.apply_model_btn.setVisible(False)
+            
+        if hasattr(self, 'model_download_btn') and hasattr(self, 'model_add_to_queue_btn'):
+            is_busy = self._current_downloading_model is not None
+            is_already_busy_with_this = (self._current_downloading_model == model_id)
+            is_in_queue = (model_id in self.download_queue)
+            
+            # Show "Add to Queue" if busy with something else
+            if is_busy:
+                self.model_download_btn.setVisible(False)
+                self.model_add_to_queue_btn.setVisible(True)
+                # Disable if already in queue or currently downloading
+                self.model_add_to_queue_btn.setEnabled(not (is_already_busy_with_this or is_in_queue))
+            else:
+                self.model_download_btn.setVisible(True)
+                self.model_add_to_queue_btn.setVisible(False)
+                self.model_download_btn.setEnabled(True)
+                self.model_download_btn.setText("Download Selected Local Model")
         
         if hasattr(self, 'model_open_folder_btn'):
             self.model_open_folder_btn.setVisible(True)
@@ -3365,6 +3613,10 @@ class LunaMainWindow(QMainWindow):
             path_obj = None
 
         if downloaded and path_obj is not None:
+            # RESTORE: If the model is downloaded, the user MUST be able to Apply it
+            if hasattr(self, 'apply_model_btn'):
+                self.apply_model_btn.setVisible(True)
+                
             path_text = str(path_obj)
             if hasattr(self, 'model_download_path_label'):
                 self.model_download_path_label.setText(f"Stored at: {path_text}")
@@ -3379,7 +3631,7 @@ class LunaMainWindow(QMainWindow):
                 self.model_open_folder_btn.setEnabled(True)
 
     def download_selected_local_model(self):
-        """Download the currently selected local model with a visible progress bar."""
+        """Add the currently selected local model to the download queue."""
         if not self._ensure_local_model_manager_main():
             return
 
@@ -3394,131 +3646,14 @@ class LunaMainWindow(QMainWindow):
             QMessageBox.information(self, "Not a Local Model", "Only local models can be downloaded from within Luna.")
             return
 
-        if hasattr(self, 'model_download_progress'):
-            self.model_download_progress.setVisible(True)
-            self.model_download_progress.setValue(0)
-        if hasattr(self, 'model_download_btn'):
-            self.model_download_btn.setEnabled(False)
+        # Avoid redundant queuing
+        if model_id == self._current_downloading_model or model_id in self.download_queue:
+            return
 
-        # Determine if this is a re-download (model already exists on disk)
-        try:
-            is_redownload = self.local_model_manager_main.is_model_downloaded(model_id)
-        except Exception:
-            is_redownload = False
-
-        class MainDownloadWorker(QThread):
-            progress = Signal(int, int, str)
-            finished_with_result = Signal(bool, str)
-
-            def __init__(self, manager, model_id, force):
-                super().__init__()
-                self.manager = manager
-                self.model_id = model_id
-                self.force = force
-
-            def run(self):
-                def _cb(current, total, msg):
-                    try:
-                        self.progress.emit(current, total, msg)
-                    except Exception:
-                        pass
-
-                success = self.manager.download_model(self.model_id, progress_callback=_cb, force=self.force)
-                self.finished_with_result.emit(success, self.model_id)
-
-        worker = MainDownloadWorker(self.local_model_manager_main, model_id, force=is_redownload)
-        self._main_download_worker = worker
-
-        def _ensure_download_timer():
-            """Create a simple timer that animates the bar while downloading."""
-            if hasattr(self, '_download_progress_timer') and self._download_progress_timer is not None:
-                return
-            from PySide6.QtCore import QTimer as _QTimerAlias  # type: ignore[import-not-found]
-            self._download_progress_timer = _QTimerAlias(self)
-            self._download_progress_timer.setInterval(150)
-
-            def _tick():
-                if not hasattr(self, 'model_download_progress'):
-                    return
-                try:
-                    val = self.model_download_progress.value()
-                    # Animate between 0 and 95 until completion
-                    if val < 95:
-                        self.model_download_progress.setValue(val + 1)
-                    else:
-                        self.model_download_progress.setValue(20)
-                except Exception:
-                    pass
-
-            self._download_progress_timer.timeout.connect(_tick)
-            self._download_progress_timer.start()
-
-        def _stop_download_timer():
-            if hasattr(self, '_download_progress_timer') and self._download_progress_timer is not None:
-                try:
-                    self._download_progress_timer.stop()
-                except Exception:
-                    pass
-                self._download_progress_timer = None
-
-        def _on_progress(current, total, msg):
-            """Mirror start/end of download into both UI and terminal.
-
-            huggingface_hub only calls this at the beginning (0) and end (total),
-            so we use a timer to animate in between while keeping CLI messages
-            consistent.
-            """
-            if not hasattr(self, 'model_download_progress'):
-                return
-            try:
-                if total and current >= total:
-                    # Download complete
-                    _stop_download_timer()
-                    self.model_download_progress.setValue(100)
-                    self.model_download_progress.setFormat("100%")
-                    print(f"[DOWNLOAD] {model_id}: complete ({current}/{total})")
-                elif total and current == 0:
-                    # Download starting
-                    self.model_download_progress.setValue(0)
-                    self.model_download_progress.setFormat("Downloading...")
-                    _ensure_download_timer()
-                    print(f"[DOWNLOAD] {model_id}: starting ({current}/{total})")
-                # Ignore intermediate values because we don't get any
-            except Exception:
-                pass
-
-        def _on_finished(success, mid):
-            if hasattr(self, 'model_download_progress'):
-                self.model_download_progress.setVisible(False)
-            if hasattr(self, 'model_download_btn'):
-                self.model_download_btn.setEnabled(True)
-
-            _stop_download_timer()
-
-            if not success:
-                QMessageBox.warning(self, "Download Failed", f"Failed to download model: {mid}")
-            else:
-                # Refresh displayed path and button states
-                try:
-                    self.update_selected_model_download_info()
-                except Exception:
-                    pass
-
-            try:
-                worker.deleteLater()
-            except Exception:
-                pass
-
-        try:
-            worker.progress.connect(_on_progress)
-            worker.finished_with_result.connect(_on_finished)
-            worker.start()
-        except Exception as e:
-            if hasattr(self, 'model_download_progress'):
-                self.model_download_progress.setVisible(False)
-            if hasattr(self, 'model_download_btn'):
-                self.model_download_btn.setEnabled(True)
-            QMessageBox.warning(self, "Download Error", f"Could not start download:\n{e}")
+        self.download_queue.append(model_id)
+        self._update_download_queue_ui()
+        self.update_selected_model_download_info()
+        self.process_download_queue()
 
     def open_selected_model_folder(self):
         """Open the folder containing the selected local model file in the OS file manager."""

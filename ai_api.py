@@ -4,7 +4,7 @@ import time
 import re
 import subprocess
 import platform
-import requests  # type: ignore[import-not-found]
+import requests
 import webbrowser
 import json
 import random
@@ -17,11 +17,11 @@ class HFRequestError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.message = message
-from ddgs import DDGS  # type: ignore[import-not-found]
+from ddgs import DDGS
 
 # Import SettingsManager only for type checking to avoid circular imports
 if TYPE_CHECKING:
-    from app import SettingsManager  # type: ignore[import-not-found]
+    from app import SettingsManager
 
 # Lightweight .env loader (no external dependency). Loads key=value pairs into os.environ
 def _load_env_from_dotenv():
@@ -85,7 +85,7 @@ class LocalConversationEngine:
         self.max_memory = max(5, min(50, size))
         # Trim existing memory if needed
         if len(self.context_memory) > self.max_memory:
-            self.context_memory = self.context_memory[-self.max_memory:]  # type: ignore[index]
+            self.context_memory = self.context_memory[-self.max_memory:]
     
     def add_to_memory(self, user_input: str, response: str):
         """Add interaction to conversation memory"""
@@ -123,7 +123,7 @@ class LocalConversationEngine:
             except Exception:
                 pass
             if len(self.context_memory) > self.max_memory:
-                self.context_memory = self.context_memory[-self.max_memory:]  # type: ignore[index]
+                self.context_memory = self.context_memory[-self.max_memory:]
         except Exception:
             pass
 
@@ -156,7 +156,7 @@ class LocalConversationEngine:
         except Exception:
             pass
     
-    def load_response_patterns(self) -> dict:  # type: ignore[override]
+    def load_response_patterns(self) -> Dict[str, List[str]]:
         """Load enhanced conversational response patterns with creativity variations"""
         return {
             "greetings": {
@@ -287,7 +287,7 @@ class LocalConversationEngine:
         message_lower = message.lower().strip()
         
         # Check conversation memory for context
-        recent_context = self.context_memory[-3:] if self.context_memory else []  # type: ignore[index]
+        recent_context = self.context_memory[-3:] if self.context_memory else []
         
         # Basic intent patterns
         if any(word in message_lower for word in ["hello", "hi", "hey", "good morning", "good afternoon", "greetings"]):
@@ -318,17 +318,17 @@ class LocalConversationEngine:
         elif self.creativity_level <= 0.5:
             # Low-medium: Slight variation, prefer earlier responses
             weights = [3, 2, 1] + [1] * (len(responses) - 3)
-            weights = weights[:len(responses)]  # type: ignore[index]
+            weights = weights[:len(responses)]
             return random.choices(responses, weights=weights)[0]
         elif self.creativity_level <= 0.7:
             # Medium: Balanced selection with some preference for variety
             weights = [2, 2, 2, 1, 1] + [1] * (len(responses) - 5)
-            weights = weights[:len(responses)]  # type: ignore[index]
+            weights = weights[:len(responses)]
             return random.choices(responses, weights=weights)[0]
         elif self.creativity_level <= 0.8:
             # High-medium: More random, slight preference for later responses
             weights = [1, 1, 2, 2, 3] + [2] * (len(responses) - 5)
-            weights = weights[:len(responses)]  # type: ignore[index]
+            weights = weights[:len(responses)]
             return random.choices(responses, weights=weights)[0]
         else:
             # Maximum creativity: Completely random with potential for response mixing
@@ -345,11 +345,11 @@ class LocalConversationEngine:
         # Get appropriate response set
         if intent in self.response_patterns:
             if isinstance(self.response_patterns[intent], dict):
-                responses = self.response_patterns[intent].get(creativity_tier, self.response_patterns[intent]["balanced"])  # type: ignore[union-attr]
+                responses = self.response_patterns[intent].get(creativity_tier, self.response_patterns[intent]["balanced"])
             else:
                 responses = self.response_patterns[intent]
         else:
-            responses = self.response_patterns["default_responses"].get(creativity_tier,  # type: ignore[union-attr]
+            responses = self.response_patterns["default_responses"].get(creativity_tier, 
                                                                       self.response_patterns["default_responses"]["balanced"])
         
         # Select response based on creativity level
@@ -388,7 +388,7 @@ class OpenRouterAPI:
             "Content-Type": "application/json"
         }
         try:
-            masked = (self.api_key[:8] + "..." + self.api_key[-4:]) if self.api_key and len(self.api_key) > 12 else ("present" if self.api_key else "missing")  # type: ignore[index]
+            masked = (self.api_key[:8] + "..." + self.api_key[-4:]) if self.api_key and len(self.api_key) > 12 else ("present" if self.api_key else "missing")
             print(f"[DEBUG] OpenRouter token at init: {masked if self.api_key else 'missing'}")
         except Exception:
             pass
@@ -437,7 +437,7 @@ class OpenRouterAPI:
         self.base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
         self.headers = ({"Authorization": f"Bearer {env_token}"} if env_token else {})
         try:
-            masked = (self.api_key[:4] + "..." + self.api_key[-4:]) if self.api_key and len(self.api_key) > 8 else ("present" if self.api_key else "missing")  # type: ignore[index]
+            masked = (self.api_key[:4] + "..." + self.api_key[-4:]) if self.api_key and len(self.api_key) > 8 else ("present" if self.api_key else "missing")
             print(f"[DEBUG] OpenRouter token at init: {masked if self.api_key else 'missing'}; headers set: {bool(self.headers)}")
         except Exception:
             pass
@@ -580,7 +580,7 @@ def set_openrouter_api_token(token: Optional[str]):
             openrouter_api.api_key = token.strip()
             openrouter_api.headers = {"Authorization": f"Bearer {openrouter_api.api_key}"}
             try:
-                masked = (openrouter_api.api_key[:4] + "..." + openrouter_api.api_key[-4:]) if len(openrouter_api.api_key) > 8 else "applied"  # type: ignore[index]
+                masked = (openrouter_api.api_key[:4] + "..." + openrouter_api.api_key[-4:]) if len(openrouter_api.api_key) > 8 else "applied"
                 print(f"[OK] OpenRouter token applied at runtime: {masked}")
             except Exception:
                 pass
@@ -598,7 +598,7 @@ def reload_openrouter_token_from_env() -> bool:
             openrouter_api.api_key = tok.strip()
             openrouter_api.headers = {"Authorization": f"Bearer {openrouter_api.api_key}"}
             try:
-                masked = (openrouter_api.api_key[:4] + "..." + openrouter_api.api_key[-4:]) if len(openrouter_api.api_key) > 8 else "applied"  # type: ignore[index]
+                masked = (openrouter_api.api_key[:4] + "..." + openrouter_api.api_key[-4:]) if len(openrouter_api.api_key) > 8 else "applied"
                 print(f"[OK] OpenRouter token reloaded from env: {masked}")
             except Exception:
                 pass
@@ -751,7 +751,7 @@ def enhanced_web_search(query, num_results=3):
                         if url:
                             result_text += f"\n[View source]({url})"
                         
-                        search_results.append(result_text)  # type: ignore[arg-type]
+                        search_results.append(result_text)
                 
                 if search_results:
                     print(f"Found {len(search_results)} results using method {i+1}")
@@ -771,12 +771,12 @@ def enhanced_web_search(query, num_results=3):
             print("Trying instant answers...")
             instant_results = list(DDGS().chat(query, max_results=2))
             if instant_results:
-                for answer in instant_results[:2]:  # type: ignore[index]
+                for answer in instant_results[:2]:
                     text = answer.get('text', '').strip()
                     if text and len(text) > 10:
                         # Format instant answers
                         result_text = f"**Quick Answer:**\n{text}"
-                        search_results.append(result_text)  # type: ignore[arg-type]
+                        search_results.append(result_text)
                         
                 if search_results:
                     header = f"Search results for '{query}':"
@@ -790,7 +790,7 @@ def enhanced_web_search(query, num_results=3):
         print(f"Search function error: {e}")
         return f"Search service is temporarily unavailable. Please try searching directly on Google for '{query}'."
 
-def get_weather(city=None):
+def get_weather(city="Beavercreek,Ohio"):
     """Enhanced weather data with personality based on creativity.
 
     Requires an OpenWeatherMap API key. If no key is configured, returns a
@@ -818,13 +818,6 @@ def get_weather(city=None):
                 "key is configured. Please add your key in Settings or the .env "
                 "file to enable weather."
             )
-
-    # Require a city to be provided (only checked when API key exists)
-    if not city or not city.strip():
-        return (
-            "I don't have a city set for weather. Please go to Settings and enter a "
-            "Default Weather City, or ask me about the weather in a specific city (e.g. 'weather in Miami')."
-        )
 
     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
     try:
@@ -993,8 +986,8 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
     
     # Apply response delay from advanced settings
     delay = advanced_settings.get('response_delay', 0.1)
-    if delay > 0:  # type: ignore[operator]
-        time.sleep(delay)  # type: ignore[arg-type]
+    if delay > 0:
+        time.sleep(delay)
     
     # Use passed parameters or fall back to global settings
     search_enabled = enable_search if enable_search is not None else advanced_settings.get('enable_search', True)
@@ -1023,7 +1016,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
     if any(question in message_lower for question in model_questions) or any(question in message_lower for question in identity_questions):
         # Get current model info
         available_models = get_available_models()
-        current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore
+        current_model_info = available_models.get(current_model, available_models['local_engine'])
         model_name = current_model_info['name']
         model_type = current_model_info.get('type', 'unknown')
         description = current_model_info.get('description', 'No description available')
@@ -1037,21 +1030,15 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
     
     # Handle weather requests
     if "weather" in message_lower:
-        city = None
-        # First try to extract city from the message itself
+        city = "Beavercreek,Ohio"  # default
         if " in " in message_lower:
             city_part = message_lower.split(" in ")[1].strip()
             if city_part:
                 city = city_part.replace(" ", ",")
-        # Fall back to the user's saved default city if none mentioned in message
-        if not city and settings_manager is not None:
-            saved_city = (settings_manager.get("default_city", "") or "").strip()
-            if saved_city:
-                city = saved_city
         weather_response = get_weather(city)
         # Get model info for identification
         available_models = get_available_models()
-        current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+        current_model_info = available_models.get(current_model, available_models['local_engine'])
         model_name = current_model_info['name']
         return f"{weather_response}\n\n[Using: {model_name}]"
     
@@ -1115,7 +1102,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                 search_response = enhanced_web_search(search_query, search_limit)
                 # Get model info for identification
                 available_models = get_available_models()
-                current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+                current_model_info = available_models.get(current_model, available_models['local_engine'])
                 model_name = current_model_info['name']
                 return f"{search_response}\n\n[Using: {model_name}]"
     else:
@@ -1124,7 +1111,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
         if any(keyword in message_lower for keyword in search_disabled_keywords):
             # Get model info for identification
             available_models = get_available_models()
-            current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+            current_model_info = available_models.get(current_model, available_models['local_engine'])
             model_name = current_model_info['name']
             if conversation_engine.creativity_level > 0.7:
                 return f"Web search is currently taking a digital vacation! You can re-enable it in the advanced settings if you'd like to explore the internet together.\n\n[Using: {model_name}]"
@@ -1137,7 +1124,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
         if system_result:
             # Get model info for identification
             available_models = get_available_models()
-            current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore
+            current_model_info = available_models.get(current_model, available_models['local_engine'])
             model_name = current_model_info['name']
             return f"{system_result}\n\n[Using: {model_name}]"
     else:
@@ -1149,7 +1136,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
         ]
         if any(term in message_lower for term in system_disabled_keywords):
             available_models = get_available_models()
-            current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+            current_model_info = available_models.get(current_model, available_models['local_engine'])
             model_name = current_model_info['name']
             if conversation_engine.creativity_level > 0.7:
                 msg = "System commands are currently disabled for safety. You can re-enable them in the advanced settings if you want me to control apps or volume."
@@ -1159,7 +1146,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
     
     # Get current model info for identification
     available_models = get_available_models()
-    current_model_info = available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+    current_model_info = available_models.get(current_model, available_models['local_engine'])
     model_name = current_model_info['name']
     
     # Try to get response from the active model
@@ -1180,7 +1167,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
             
             # Determine which API to use based on provider
             available_models = get_available_models()
-            model_info = available_models.get(current_model, {})  # type: ignore[arg-type]
+            model_info = available_models.get(current_model, {})
             provider = model_info.get('provider', 'openrouter')
             
             for attempt in range(attempts):
@@ -1191,9 +1178,9 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                     
                     # Route to appropriate API based on provider
                     if provider == 'openrouter':
-                        response = openrouter_api.query_model(current_model, original_message)  # type: ignore[arg-type]
+                        response = openrouter_api.query_model(current_model, original_message)
                     else:  # Default to OpenRouter
-                        response = openrouter_api.query_model(current_model, original_message)  # type: ignore[arg-type]
+                        response = openrouter_api.query_model(current_model, original_message)
 
                     # If we got a completely empty/whitespace response, treat it as an error
                     # so we don't render a blank Luna bubble. Use a generic exception so the
@@ -1203,14 +1190,14 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
 
                     # Clear any previous errors if successful
                     if settings_manager is not None:
-                        settings_manager.clear_model_error(current_model)  # type: ignore[union-attr]
+                        settings_manager.clear_model_error(current_model)
                     return f"{response}\n\n[Using: {model_name}]"
                 except Exception as e:
                     last_err = str(e)
                     print(f"OpenRouter API Error: {last_err}")
                     # Record error each time
                     try:
-                        settings_manager.set_model_error(current_model, last_err)  # type: ignore[union-attr]
+                        settings_manager.set_model_error(current_model, last_err)
                     except Exception:
                         pass
                     lower = last_err.lower()
@@ -1232,7 +1219,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                     continue
             # Before local fallback, attempt alternate OpenRouter models based on advanced recovery settings
             try:
-                lower = (last_err or "").lower()  # type: ignore[union-attr]
+                lower = (last_err or "").lower()
                 auto_fb = True
                 cap = 3
                 ignore_pings = False
@@ -1287,13 +1274,13 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                         if tried >= cap:
                             break
                         try:
-                            err_summary = (last_err.splitlines()[0] if last_err else 'unknown')  # type: ignore[union-attr]
+                            err_summary = (last_err.splitlines()[0] if last_err else 'unknown')
                             print(f"Trying alternate HF model '{alt_id}' due to error: {err_summary}")
-                            alt_resp = hf_api.query_model(alt_id, original_message)  # type: ignore[name-defined]
+                            alt_resp = hf_api.query_model(alt_id, original_message)
                             # Success: auto-switch for continuity
                             try:
                                 if settings_manager is not None:
-                                    settings_manager.set('current_ai_model', alt_id)  # type: ignore[union-attr]
+                                    settings_manager.set('current_ai_model', alt_id)
                                 update_advanced_settings({'current_model': alt_id})
                             except Exception:
                                 pass
@@ -1333,7 +1320,7 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                         if priority:
                             direct_list.sort(key=lambda mid: priority.index(mid) if mid in priority else len(priority))
                         for alt_id in direct_list:
-                            if alt_id == current_model or tried >= cap:  # type: ignore[operator]
+                            if alt_id == current_model or tried >= cap:
                                 continue
                             try:
                                 print(f"Trying alternate OpenRouter model '{alt_id}' (direct)...")
@@ -1341,18 +1328,18 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
                                 # Success: auto-switch for continuity
                                 try:
                                     if settings_manager is not None:
-                                        settings_manager.set('current_ai_model', alt_id)  # type: ignore[union-attr]
+                                        settings_manager.set('current_ai_model', alt_id)
                                     update_advanced_settings({'current_model': alt_id})
                                 except Exception:
                                     pass
                                 alt_name = ui_models.get(alt_id, {}).get('name', alt_id)
                                 return f"{alt_resp}\n\n[Using: {alt_name} (Auto-switched)]"
-                            except OpenRouterRequestError as alt_e:  # type: ignore[name-defined]
+                            except OpenRouterRequestError as alt_e:
                                 if getattr(alt_e, 'status_code', None) == 404:
                                     print(f"Skipping alternate '{alt_id}' (404 Inference API not available): {alt_e}")
                                     continue
                                 print(f"Alternate OpenRouter model failed (direct): {alt_e}")
-                                tried += 1  # type: ignore[operator]
+                                tried += 1
                                 continue
                             except Exception as alt_e:
                                 print(f"Alternate OpenRouter model failed (direct, unknown): {alt_e}")
@@ -1371,11 +1358,64 @@ def call_ai_api(message, enable_search=None, enable_system_commands=None, search
             )
             return f"{fallback_response}\n\n[Using: Local Conversation Engine (Fallback)]"
         else:  # Local model
-            response = conversation_engine.generate_response(original_message)
-            # Clear any previous errors for local engine
+            if current_model == 'local_engine':
+                # Built-in pattern-matching engine — always available, no disk check needed.
+                response = conversation_engine.generate_response(original_message)
+                if settings_manager is not None:
+                    settings_manager.clear_model_error(current_model)
+                return f"{response}\n\n[Using: {model_name}]"
+
+            # --- GGUF local model path ---
+            # Guard: never trigger a download here. The frontend's download queue
+            # is the sole owner of that operation. If the file isn't on disk yet,
+            # return a clear error and exit immediately.
+            _mgr = None
+            try:
+                import local_model_manager as _lmm
+                _mgr = _lmm.get_manager()
+            except Exception as _import_err:
+                print(f"[WARN] call_ai_api: could not import local_model_manager: {_import_err}")
+
+            if _mgr is None or not _mgr.is_model_downloaded(current_model):
+                print(f"[WARN] call_ai_api: '{current_model}' not downloaded — "
+                      f"refusing inference to avoid racing the frontend download queue.")
+                if settings_manager is not None:
+                    try:
+                        settings_manager.set_model_error(current_model, "Model not downloaded")
+                    except Exception:
+                        pass
+                return (
+                    f"⚠️ **{model_name} is not downloaded yet.**\n"
+                    f"Please use the Models menu to download it before using it. "
+                    f"Once the download completes you can select it again.\n\n"
+                    f"[Using: {model_name} — Not Downloaded]"
+                )
+
+            # Model file is on disk — run inference via LocalModelManager.
+            # load_model uses an in-memory cache so repeated calls are cheap.
+            local_response = _mgr.generate_response(current_model, original_message)
+            if local_response is None:
+                # File exists but Llama failed to initialise (e.g. llama-cpp-python missing).
+                print(f"[ERROR] call_ai_api: LocalModelManager.generate_response returned None "
+                      f"for '{current_model}' — inference runtime may be unavailable.")
+                if settings_manager is not None:
+                    try:
+                        settings_manager.set_model_error(current_model, "Model failed to load for inference")
+                    except Exception:
+                        pass
+                return (
+                    f"⚠️ **{model_name} could not be loaded for inference.**\n"
+                    f"The model file is present but the local inference runtime "
+                    f"(llama-cpp-python) may not be installed or compatible.\n\n"
+                    f"[Using: {model_name} — Load Failed]"
+                )
+
             if settings_manager is not None:
-                settings_manager.clear_model_error(current_model)
-            return f"{response}\n\n[Using: {model_name}]"
+                try:
+                    settings_manager.clear_model_error(current_model)
+                except Exception:
+                    pass
+            return f"{local_response}\n\n[Using: {model_name}]"
     except Exception as e:
         print(f"Unexpected error in call_ai_api: {e}")
         # Fallback response when all else fails
@@ -1444,6 +1484,14 @@ def get_available_models():
             "features": ["conversation", "instruction_following", "reasoning", "multilingual"],
             "status": "available"
         },
+        "deepseek/deepseek-r1-0528:free": {
+            "name": "DeepSeek R1",
+            "type": "openrouter",
+            "provider": "openrouter",
+            "description": "DeepSeek's latest conversational model optimized for chat interactions and instruction following",
+            "features": ["conversation", "instruction_following", "reasoning", "multilingual"],
+            "status": "available"
+        },
         "openai/gpt-oss-20b:free": {
             "name": "OpenAI GPT-OSS 20B",
             "type": "openrouter",
@@ -1451,22 +1499,20 @@ def get_available_models():
             "description": "Open-source 20B parameter language model based on GPT architecture with strong general-purpose capabilities",
             "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
             "status": "available"
-        },
-        "openai/gpt-oss-120b:free": {
-            "name": "OpenAI GPT-OSS 120B",
-            "type": "openrouter",
-            "provider": "openrouter",
-            "description": "Larger GPT-OSS 120B parameter model for more demanding reasoning and generation tasks",
-            "features": ["conversation", "reasoning", "code_generation", "knowledge_retrieval", "multilingual"],
-            "status": "available"
         }
     }
 
 def set_current_model(model_id: str):
-    """Set the current AI model"""
+    """Set the current AI model.
+
+    For local/ GGUF models this only updates the in-memory selection; it does
+    NOT trigger a download or load.  The download-state check is intentionally
+    deferred to inference time (call_ai_api) so that the frontend's managed
+    download queue remains the sole entry point for downloading.
+    """
     global advanced_settings
     available_models = get_available_models()
-    
+
     # Normalize some known legacy IDs to current OpenRouter slugs
     legacy_map = {
         "deepseek/deepseek-chat-v3-0324:free": "deepseek/deepseek-r1-0528:free",
@@ -1478,10 +1524,22 @@ def set_current_model(model_id: str):
     # Direct match first
     if model_id in available_models:
         advanced_settings['current_model'] = model_id
-        print(f"[OK] Current AI model set to {available_models[model_id]['name']}")
+        model_info = available_models[model_id]
+        print(f"[OK] Current AI model set to {model_info['name']}")
         print(f"[DEBUG] Advanced settings current_model is now: {advanced_settings['current_model']}")
+        # Warn early if it's a GGUF local model that isn't on disk yet — the
+        # actual guard lives in call_ai_api so no download is triggered here.
+        if model_info.get('type') == 'local' and model_id != 'local_engine':
+            try:
+                import local_model_manager as _lmm
+                if not _lmm.get_manager().is_model_downloaded(model_id):
+                    print(f"[WARN] set_current_model: '{model_id}' is selected but not yet "
+                          f"downloaded. Inference will be blocked until the frontend "
+                          f"download queue completes the download.")
+            except Exception:
+                pass
         return True
-    
+
     # Try to normalize and map friendly/alias IDs to known keys
     def _norm(s: str) -> str:
         return ''.join(ch for ch in s.lower() if ch.isalnum())
@@ -1489,7 +1547,7 @@ def set_current_model(model_id: str):
     candidates = []
     for key, info in available_models.items():
         norm_key = _norm(key)
-        norm_name = _norm(info.get('name', key))  # type: ignore[arg-type]
+        norm_name = _norm(info.get('name', key))
         if target == norm_key or target == norm_name or target.endswith(norm_key.split('/')[-1] if '/' in key else norm_key):
             candidates.append(key)
     if len(candidates) == 1:
@@ -1513,4 +1571,4 @@ def get_current_model_info():
     """Get information about the currently selected model"""
     current_model = advanced_settings.get('current_model', 'local_engine')
     available_models = get_available_models()
-    return available_models.get(current_model, available_models['local_engine'])  # type: ignore[arg-type]
+    return available_models.get(current_model, available_models['local_engine'])

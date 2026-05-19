@@ -8,7 +8,7 @@
   "response_delay": 0.1,
   "search_results_limit": 3,
   "conversation_memory": 10,
-  "current_ai_model": "local_engine",
+  "current_ai_model": "openai/gpt-oss-20b:free",
   "api_timeout": 30,
   "auto_fallback": true,
   "retry_attempts": 2,
@@ -138,15 +138,11 @@
     },
     "deepseek/deepseek-r1-0528:free": {
       "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1771992949.2351432
+      "timestamp": 1776915035.9740882
     },
     "openai/gpt-oss-120b:free": {
       "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1771992949.2351432
-    },
-    "openai/gpt-oss-20b:free": {
-      "error": "module 'ai_api' has no attribute 'check_hf_model_status'",
-      "timestamp": 1771992949.2351432
+      "timestamp": 1776915035.9740882
     }
   }
 }
